@@ -6,7 +6,7 @@ use Attribute;
 use phpboot\common\constant\Regexp;
 use phpboot\common\util\StringUtils;
 
-#[Attribute(Attribute::TARGET_METHOD)]
+#[Attribute(Attribute::TARGET_CLASS)]
 class Scheduled
 {
     private string $value;
