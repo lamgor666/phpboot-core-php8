@@ -1,0 +1,25 @@
+{
+  "name": "lamgor666/phpboot-core-php8",
+  "description": "a lightweight api framework like spring boot for php 8.0.2 or above",
+  "keywords": [],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Simon.Ye",
+      "email": "samlinye@163.com"
+    }
+  ],
+  "autoload": {
+    "psr-4": {
+      "phpboot\\": "src/"
+    }
+  },
+  "require": {
+    "php": ">=8.0.2",
+    "psr/log": "^1.1.4",
+    "lamgor666/phpboot-common": "^1.0.0",
+    "lamgor666/phpboot-dal": "^1.0.0",
+    "guzzlehttp/guzzle": "^7.4.1",
+    "symfony/routing": "^6.0.1"
+  }
+}
