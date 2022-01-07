@@ -8,20 +8,13 @@ use Psr\Log\LoggerInterface;
 
 final class LogContext
 {
-    /**
-     * @var array
-     */
-    private static $map1 = [];
+    private static array $map1 = [];
 
     private function __construct()
     {
     }
 
-    /**
-     * @param Logger|array $arg0
-     * @param int|null $workerId
-     */
-    public static function withLogger($arg0, ?int $workerId = null): void
+    public static function withLogger(Logger|array $arg0, ?int $workerId = null): void
     {
         $logger = null;
 

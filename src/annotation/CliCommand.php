@@ -2,35 +2,24 @@
 
 namespace phpboot\annotation;
 
-use Doctrine\Common\Annotations\Annotation\Target;
+use Attribute;
 
-/**
- * @Annotation
- * @Target("CLASS")
- */
+#[Attribute(Attribute::TARGET_CLASS)]
 class CliCommand
 {
-    /**
-     * @var bool
-     */
-    private $disabled;
+    private bool $disabled;
 
-    public function __construct($arg0 = null)
+    public function __construct(?bool $value = null)
     {
         $disabled = false;
 
-        if (is_bool($arg0)) {
-            $disabled = $arg0 === true;
-        } else if (is_array($arg0) && is_bool($arg0['disabled'])) {
-            $disabled = $arg0['disabled'] === true;
+        if (is_bool($value)) {
+            $disabled = $value === true;
         }
 
         $this->disabled = $disabled;
     }
 
-    /**
-     * @return bool
-     */
     public function isDisabled(): bool
     {
         return $this->disabled;

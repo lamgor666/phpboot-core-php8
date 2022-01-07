@@ -44,7 +44,7 @@ class MidExecuteTimeLog implements Middleware
         $sb = ["$httpMethod $requestUrl"];
         $handlerName = $req->getContextParam('handlerName');
 
-        if (is_string($handlerName) && strpos($handlerName, '@') !== false) {
+        if (is_string($handlerName) && str_contains($handlerName, '@')) {
             $clazz = StringUtils::substringBefore($handlerName, '@');
             $clazz = StringUtils::ensureLeft($clazz, "\\");
             $methodName = StringUtils::substringAfterLast($handlerName, '@');

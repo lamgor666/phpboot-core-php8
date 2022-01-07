@@ -16,9 +16,9 @@
   },
   "require": {
     "php": ">=8.0.2",
-    "psr/log": "^1.1.4",
-    "lamgor666/phpboot-common": "^1.0.0",
-    "lamgor666/phpboot-dal": "^1.0.0",
+    "psr/log": "^3.0.0",
+    "lamgor666/phpboot-common-php8": "^1.0.1",
+    "lamgor666/phpboot-dal-php8": "^1.0.0",
     "guzzlehttp/guzzle": "^7.4.1",
     "symfony/routing": "^6.0.1"
   }

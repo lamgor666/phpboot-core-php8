@@ -9,10 +9,7 @@ use phpboot\common\util\StringUtils;
 
 final class Cache
 {
-    /**
-     * @var array
-     */
-    private static $map1 = [];
+    private static array $map1 = [];
 
     private function __construct()
     {

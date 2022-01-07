@@ -2,9 +2,9 @@
 
 namespace phpboot\annotation;
 
-/**
- * @Annotation
- */
+use Attribute;
+
+#[Attribute(Attribute::TARGET_METHOD)]
 final class ClientIp
 {
 }

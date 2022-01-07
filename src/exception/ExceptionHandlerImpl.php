@@ -10,10 +10,7 @@ use Throwable;
 
 final class ExceptionHandlerImpl implements ExceptionHandler
 {
-    /**
-     * @var string
-     */
-    private $clazz;
+    private string $clazz;
 
     private function __construct(string $clazz)
     {
@@ -37,32 +34,20 @@ final class ExceptionHandlerImpl implements ExceptionHandler
         switch (get_class($ex)) {
             case JwtAuthException::class:
                 if ($ex instanceof JwtAuthException) {
-                    switch ($ex->getErrno()) {
-                        case JwtVerifyErrno::INVALID:
-                            $code = 1002;
-                            break;
-                        case JwtVerifyErrno::EXPIRED:
-                            $code = 1003;
-                            break;
-                        default:
-                            $code = 1001;
-                            break;
-                    }
+                    $code = match ($ex->getErrno()) {
+                        JwtVerifyErrno::INVALID => 1002,
+                        JwtVerifyErrno::EXPIRED => 1003,
+                        default => 1001,
+                    };
 
                     $msg = $ex->getMessage();
 
                     if ($msg === '') {
-                        switch ($code) {
-                            case 1002:
-                                $msg = '不是有效的安全令牌';
-                                break;
-                            case 1003:
-                                $msg = '安全令牌已失效';
-                                break;
-                            default:
-                                $msg = '安全令牌缺失';
-                                break;
-                        }
+                        $msg = match ($code) {
+                            1002 => '不是有效的安全令牌',
+                            1003 => '安全令牌已失效',
+                            default => '安全令牌缺失',
+                        };
                     }
 
                     $payload = JsonResponse::withPayload(compact('code', 'msg'));

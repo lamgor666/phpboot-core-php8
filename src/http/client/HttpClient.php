@@ -61,65 +61,18 @@ final class HttpClient
         600 => 'Unparseable Response Headers'
     ];
 
-    /**
-     * @var string
-     */
-    private $requestUrl;
-
-    /**
-     * @var string
-     */
-    private $method;
-
-    /**
-     * @var int
-     */
-    private $connectTimeout = 3;
-
-    /**
-     * @var int
-     */
-    private $readTimeout = 10;
-
-    /**
-     * @var array
-     */
-    private $headers = [];
-
-    /**
-     * @var array
-     */
-    private $cookies = [];
-
-    /**
-     * @var bool
-     */
-    private $verify = false;
-
-    /**
-     * @var string
-     */
-    private $sslCertPem = '';
-
-    /**
-     * @var string
-     */
-    private $sslKeyPem = '';
-
-    /**
-     * @var array
-     */
-    private $formData = [];
-
-    /**
-     * @var array
-     */
-    private $formFiles = [];
-
-    /**
-     * @var string
-     */
-    private $payload = '';
+    private string $requestUrl;
+    private string $method;
+    private int $connectTimeout = 3;
+    private int $readTimeout = 10;
+    private array $headers = [];
+    private array $cookies = [];
+    private bool $verify = false;
+    private string $sslCertPem = '';
+    private string $sslKeyPem = '';
+    private array $formData = [];
+    private array $formFiles = [];
+    private string $payload = '';
 
     private function __construct(string $requestUrl)
     {
@@ -135,11 +88,7 @@ final class HttpClient
         return new self($requestUrl);
     }
 
-    /**
-     * @param int|string $timeout
-     * @return HttpClient
-     */
-    public function withConnectTimeout($timeout): self
+    public function withConnectTimeout(int|string $timeout): self
     {
         if (is_string($timeout)) {
             $timeout = StringUtils::toDuration($timeout);
@@ -152,11 +101,7 @@ final class HttpClient
         return $this;
     }
 
-    /**
-     * @param int|string $timeout
-     * @return HttpClient
-     */
-    public function withReadTimeout($timeout): self
+    public function withReadTimeout(int|string $timeout): self
     {
         if (is_string($timeout)) {
             $timeout = StringUtils::toDuration($timeout);
@@ -237,24 +182,14 @@ final class HttpClient
         return $this;
     }
 
-    /**
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function get(?int $responseType = null)
+    public function get(?int $responseType = null): StreamInterface|string
     {
         $this->method = 'GET';
         $response = $this->sendRequest();
         return $responseType === ResponseType::STREAM ? $response->getBody() : $response->getBody()->getContents();
     }
 
-    /**
-     * @param array|null $foramData
-     * @param array|null $formFiles
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function post(?array $foramData = null, ?array $formFiles = null, ?int $responseType = null)
+    public function post(?array $foramData = null, ?array $formFiles = null, ?int $responseType = null): StreamInterface|string
     {
         $this->method = 'POST';
         $this->formData = is_array($foramData) ? $foramData : [];
@@ -263,123 +198,64 @@ final class HttpClient
         return $responseType === ResponseType::STREAM ? $response->getBody() : $response->getBody()->getContents();
     }
 
-    /**
-     * @param string $xml
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function postWithXmlPayload(string $xml, ?int $responseType = null)
+    public function postWithXmlPayload(string $xml, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('POST', 'application/xml', $xml, $responseType);
     }
 
-    /**
-     * @param string $json
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function postWithJsonPayload(string $json, ?int $responseType = null)
+    public function postWithJsonPayload(string $json, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('POST', 'application/json', $json, $responseType);
     }
 
-    /**
-     * @param string $contentType
-     * @param string $contents
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function postWithRawBody(string $contentType, string $contents, ?int $responseType = null)
+    public function postWithRawBody(string $contentType, string $contents, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('POST', $contentType, $contents, $responseType);
     }
 
-    /**
-     * @param string $xml
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function putWithXmlPayload(string $xml, ?int $responseType = null)
+    public function putWithXmlPayload(string $xml, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('PUT', 'application/xml', $xml, $responseType);
     }
 
-    /**
-     * @param string $json
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function putWithJsonPayload(string $json, ?int $responseType = null)
+    public function putWithJsonPayload(string $json, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('PUT', 'application/json', $json, $responseType);
     }
 
-    /**
-     * @param string $contentType
-     * @param string $contents
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function putWithRawBody(string $contentType, string $contents, ?int $responseType = null)
+    public function putWithRawBody(string $contentType, string $contents, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('PUT', $contentType, $contents, $responseType);
     }
 
-    /**
-     * @param string $xml
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function patchWithXmlPayload(string $xml, ?int $responseType = null)
+    public function patchWithXmlPayload(string $xml, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('PATCH', 'application/xml', $xml, $responseType);
     }
 
-    /**
-     * @param string $json
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function patchWithJsonPayload(string $json, ?int $responseType = null)
+    public function patchWithJsonPayload(string $json, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('PATCH', 'application/json', $json, $responseType);
     }
 
-    /**
-     * @param string $contentType
-     * @param string $contents
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function patchWithRawBody(string $contentType, string $contents, ?int $responseType = null)
+    public function patchWithRawBody(string $contentType, string $contents, ?int $responseType = null): StreamInterface|string
     {
         return $this->requestWithRawBody('PATCH', $contentType, $contents, $responseType);
     }
 
-    /**
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
-    public function delete(?int $responseType = null)
+    public function delete(?int $responseType = null): StreamInterface|string
     {
         $this->method = 'DELETE';
         $response = $this->sendRequest();
         return $responseType === ResponseType::STREAM ? $response->getBody() : $response->getBody()->getContents();
     }
 
-    /**
-     * @param string $httpMethod
-     * @param string $contentType
-     * @param string $contents
-     * @param int|null $responseType
-     * @return StreamInterface|string
-     */
     public function requestWithRawBody(
         string $httpMethod,
         string $contentType,
         string $contents,
         ?int $responseType = null
-    )
+    ): StreamInterface|string
     {
         $this->method = strtoupper($httpMethod);
         $this->withHeader('Content-Type', $contentType);
@@ -478,10 +354,7 @@ final class HttpClient
         return new Response(200, [], $contents);
     }
 
-    /**
-     * @return Client|\Swoole\Coroutine\Http\Client
-     */
-    private function buildClient()
+    private function buildClient(): Client|\Swoole\Coroutine\Http\Client
     {
         if (!Swoole::inCoroutineMode()) {
             return new Client(['handler' => HandlerStack::create(new CurlHandler())]);

@@ -4,11 +4,6 @@ namespace phpboot\caching;
 
 trait CacheInterfaceTrait
 {
-    /**
-     * @param iterable $keys
-     * @param mixed $default
-     * @return array
-     */
     public function getMultiple(iterable $keys, $default = null): array
     {
         $ret = [];

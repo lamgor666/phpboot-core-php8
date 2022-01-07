@@ -6,10 +6,7 @@ use RuntimeException;
 
 class JwtAuthException extends RuntimeException
 {
-    /**
-     * @var int
-     */
-    private $errno;
+    private int $errno;
 
     public function __construct(int $errno, string $errorTips = '')
     {

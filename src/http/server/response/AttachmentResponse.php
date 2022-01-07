@@ -10,20 +10,9 @@ final class AttachmentResponse implements ResponsePayload
 {
     use MapAbleTrait;
 
-    /**
-     * @var string
-     */
-    private $filepath = '';
-
-    /**
-     * @var string
-     */
-    private $buf = '';
-
-    /**
-     * @var string
-     */
-    private $attachmentFileName = '';
+    private string $filepath = '';
+    private string $buf = '';
+    private string $attachmentFileName = '';
 
     private function __construct(?array $data = null)
     {
@@ -62,10 +51,7 @@ final class AttachmentResponse implements ResponsePayload
         return empty($mimeType) ? 'application/octet-stream' : $mimeType;
     }
 
-    /**
-     * @return string|HttpError
-     */
-    public function getContents()
+    public function getContents(): string|HttpError
     {
         $attachmentFileName = $this->attachmentFileName;
 

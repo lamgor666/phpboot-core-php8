@@ -9,25 +9,10 @@ final class FormFile
 {
     use MapAbleTrait;
 
-    /**
-     * @var string
-     */
-    private $formFieldName = '';
-
-    /**
-     * @var string
-     */
-    private $filename = '';
-
-    /**
-     * @var string
-     */
-    private $mimeType = '';
-
-    /**
-     * @var string
-     */
-    private $tempFilepath = '';
+    private string $formFieldName = '';
+    private string $filename = '';
+    private string $mimeType = '';
+    private string $tempFilepath = '';
 
     private function __construct(?array $data = null)
     {

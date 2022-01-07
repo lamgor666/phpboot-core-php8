@@ -9,10 +9,7 @@ abstract class AbstractTask
 {
     use LogAbleTrait;
 
-    /**
-     * @var array
-     */
-    private $params = [];
+    private array $params = [];
 
     public function __construct(array $params = [])
     {

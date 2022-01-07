@@ -9,25 +9,19 @@ use Throwable;
 
 final class CorsSettings
 {
-    /**
-     * @var array
-     */
-    private static $map1 = [];
+    private static array $map1 = [];
 
-    /**
-     * @var bool
-     */
-    private $enabled;
+    private bool $enabled;
 
     /**
      * @var string[]
      */
-    private $allowedOrigins = ['*'];
+    private array $allowedOrigins = ['*'];
 
     /**
      * @var string[]
      */
-    private $allowedHeaders = [
+    private array $allowedHeaders = [
         'Content-Type',
         'Content-Length',
         'Authorization',
@@ -39,7 +33,7 @@ final class CorsSettings
     /**
      * @var string[]
      */
-    private $allowedMethods = [
+    private array $allowedMethods = [
         'GET',
         'POST',
         'PUT',
@@ -48,15 +42,12 @@ final class CorsSettings
         'OPTIONS'
     ];
 
-    /**
-     * @var bool
-     */
-    private $allowCredentials = false;
+    private bool $allowCredentials = false;
 
     /**
      * @var string[]
      */
-    private $exposedHeaders = [
+    private array $exposedHeaders = [
         'Content-Length',
         'Access-Control-Allow-Origin',
         'Access-Control-Allow-Headers',
@@ -65,10 +56,7 @@ final class CorsSettings
         'Content-Type'
     ];
 
-    /**
-     * @var int
-     */
-    private $maxAge = 0;
+    private int $maxAge = 0;
 
     private function __construct(?array $settings = null)
     {
@@ -120,7 +108,7 @@ final class CorsSettings
 
             try {
                 $this->$pname = $value;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
             }
         }
 

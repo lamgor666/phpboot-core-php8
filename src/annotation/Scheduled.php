@@ -2,50 +2,22 @@
 
 namespace phpboot\annotation;
 
-use Doctrine\Common\Annotations\Annotation\Target;
+use Attribute;
 use phpboot\common\constant\Regexp;
 use phpboot\common\util\StringUtils;
 
-/**
- * @Annotation
- * @Target("CLASS")
- */
+#[Attribute(Attribute::TARGET_METHOD)]
 class Scheduled
 {
-    /**
-     * @var string
-     */
-    private $value;
+    private string $value;
+    private bool $disabled;
 
-    /**
-     * @var bool
-     */
-    private $disabled;
-
-    public function __construct($arg0)
+    public function __construct(string $value, bool $disabled = false)
     {
-        $value = '';
-        $disabled = false;
-
-        if (is_string($arg0)) {
-            $value = $arg0;
-        } else if (is_array($arg0)) {
-            if (is_string($arg0['value'])) {
-                $value = $arg0['value'];
-            }
-
-            if (is_bool($arg0['disabled'])) {
-                $disabled = $arg0['disabled'];
-            }
-        }
-
         $this->value = $value;
         $this->disabled = $disabled;
     }
 
-    /**
-     * @return string
-     */
     public function getValue(): string
     {
         $expr = trim($this->value);
@@ -103,9 +75,6 @@ class Scheduled
         return implode(' ', $parts);
     }
 
-    /**
-     * @return bool
-     */
     public function isDisabled(): bool
     {
         return $this->disabled;

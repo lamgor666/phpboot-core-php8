@@ -17,12 +17,8 @@ use Throwable;
 
 final class TaskPublisher
 {
-    /**
-     * @var string
-     */
-    private static $_normalQueueCacheKey = 'redismq.normal';
-
-    private static $_delayableQueueCacheKey = 'redismq.delayable';
+    private static string $_normalQueueCacheKey = 'redismq.normal';
+    private static string $_delayableQueueCacheKey = 'redismq.delayable';
 
     private function __construct()
     {

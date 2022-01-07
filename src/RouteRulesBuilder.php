@@ -1,7 +1,6 @@
 <?php
 namespace phpboot;
 
-use Doctrine\Common\Annotations\AnnotationReader;
 use Lcobucci\JWT\Token;
 use phpboot\annotation\ClientIp;
 use phpboot\annotation\DeleteMapping;
@@ -10,7 +9,6 @@ use phpboot\annotation\HttpHeader;
 use phpboot\annotation\JwtAuth;
 use phpboot\annotation\JwtClaim;
 use phpboot\annotation\MapBind;
-use phpboot\annotation\ParamInject;
 use phpboot\annotation\PatchMapping;
 use phpboot\annotation\PathVariable;
 use phpboot\annotation\PostMapping;
@@ -30,16 +28,14 @@ use phpboot\common\util\StringUtils;
 use phpboot\common\util\TokenizeUtils;
 use phpboot\http\middleware\Middleware;
 use phpboot\http\server\Request;
+use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
 use ReflectionNamedType;
 use Throwable;
 
 final class RouteRulesBuilder {
-    /**
-     * @var array
-     */
-    private static $map1 = [];
+    private static array $map1 = [];
 
     private function __construct()
     {
@@ -97,7 +93,7 @@ final class RouteRulesBuilder {
 
             try {
                 $files = glob("$dir/*.php");
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $files = [];
             }
 
@@ -115,7 +111,7 @@ final class RouteRulesBuilder {
                     $tokens = token_get_all(file_get_contents($filepath));
                     $className = TokenizeUtils::getQualifiedClassName($tokens);
                     $clazz = new ReflectionClass($className);
-                } catch (Throwable $ex) {
+                } catch (Throwable) {
                     $className = '';
                     $clazz = null;
                 }
@@ -128,7 +124,7 @@ final class RouteRulesBuilder {
 
                 try {
                     $methods = $clazz->getMethods(ReflectionMethod::IS_PUBLIC);
-                } catch (Throwable $ex) {
+                } catch (Throwable) {
                     $methods = [];
                 }
 
@@ -142,7 +138,7 @@ final class RouteRulesBuilder {
                             'validateRules' => self::getValidateRules($method),
                             'extraAnnos' => self::getExtraAnnos($method)
                         ];
-                    } catch (Throwable $ex) {
+                    } catch (Throwable) {
                         continue;
                     }
 
@@ -263,19 +259,20 @@ final class RouteRulesBuilder {
     private static function getHandlerFuncArgs(ReflectionMethod $method): array
     {
         $params = $method->getParameters();
-        $anno1 = ReflectUtils::getMethodAnnotation($method, ParamInject::class);
 
-        if ($anno1 instanceof ParamInject) {
-            $injectRules = $anno1->getValue();
-
-            if (is_array($injectRules['value'])) {
-                $injectRules = $injectRules['value'];
-            }
-        } else {
-            $injectRules = [];
+        try {
+            $attrs = $method->getAttributes();
+        } catch (Throwable) {
+            $attrs = [];
         }
 
-        $n1 = count($injectRules) - 1;
+        $annos = [];
+
+        foreach ($attrs as $attr) {
+            $annos[] = self::buildAnno($attr);
+        }
+
+        $n1 = count($annos) - 1;
 
         foreach ($params as $i => $p) {
             $type = $p->getType();
@@ -296,20 +293,20 @@ final class RouteRulesBuilder {
                 $map1['nullable'] = true;
             }
 
-            if (strpos($typeName, Request::class) !== false) {
+            if (str_contains($typeName, Request::class)) {
                 $map1['rawReq'] = true;
                 $params[$i] = $map1;
                 continue;
             }
 
-            if (strpos($typeName, Token::class) !== false) {
+            if (str_contains($typeName, Token::class)) {
                 $map1['rawJwt'] = true;
                 $params[$i] = $map1;
                 continue;
             }
 
             if ($i <= $n1) {
-                $anno = $injectRules[$i];
+                $anno = $annos[$i];
 
                 if ($anno instanceof ClientIp) {
                     $map1['clientIp'] = true;
@@ -411,22 +408,23 @@ final class RouteRulesBuilder {
     private static function getExtraAnnos(ReflectionMethod $method): string
     {
         try {
-            $reader = new AnnotationReader();
-            $annos = $reader->getMethodAnnotations($method);
-        } catch (Throwable $ex) {
-            $annos = [];
+            $attrs = $method->getAttributes();
+        } catch (Throwable) {
+            $attrs = [];
         }
 
         $extraAnnos = [];
 
-        foreach ($annos as $anno) {
+        foreach ($attrs as $attr) {
+            $anno = self::buildAnno($attr);
+
             if (!is_object($anno) || !method_exists($anno, '__toString')) {
                 continue;
             }
 
             try {
                 $contents = $anno->__toString();
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 continue;
             }
 
@@ -653,23 +651,13 @@ final class RouteRulesBuilder {
                 $pname = $argInfo['pathvariableName'];
                 $dv = $argInfo['defaultValue'];
 
-                switch ($argInfo['type']) {
-                    case 'int':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->pathVariableAsInt('%s', '%s');", $i, $pname, $dv);
-                        break;
-                    case 'float':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->pathVariableAsFloat('%s', '%s');", $i, $pname, $dv);
-                        break;
-                    case 'bool':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->pathVariableAsBoolean('%s', '%s');", $i, $pname, $dv);
-                        break;
-                    case 'string':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->pathVariableAsString('%s', '%s');", $i, $pname, $dv);
-                        break;
-                    default:
-                        $codeParts[] = sprintf("$tab1\$arg%d = null;", $i);
-                        break;
-                }
+                $codeParts[] = match ($argInfo['type']) {
+                    'int' => sprintf("$tab1\$arg%d = \$req->pathVariableAsInt('%s', '%s');", $i, $pname, $dv),
+                    'float' => sprintf("$tab1\$arg%d = \$req->pathVariableAsFloat('%s', '%s');", $i, $pname, $dv),
+                    'bool' => sprintf("$tab1\$arg%d = \$req->pathVariableAsBoolean('%s', '%s');", $i, $pname, $dv),
+                    'string' => sprintf("$tab1\$arg%d = \$req->pathVariableAsString('%s', '%s');", $i, $pname, $dv),
+                    default => sprintf("$tab1\$arg%d = null;", $i),
+                };
 
                 $argList[] = sprintf("\$arg%d", $i);
                 continue;
@@ -679,26 +667,14 @@ final class RouteRulesBuilder {
                 $cname = $argInfo['jwtClaimName'];
                 $dv = $argInfo['defaultValue'];
 
-                switch ($argInfo['type']) {
-                    case 'int':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->jwtIntCliam('%s', '%s');", $i, $cname, $dv);
-                        break;
-                    case 'float':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->jwtFloatClaim('%s', '%s');", $i, $cname, $dv);
-                        break;
-                    case 'bool':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->jwtBooleanClaim('%s', '%s');", $i, $cname, $dv);
-                        break;
-                    case 'string':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->jwtStringClaim('%s', '%s');", $i, $cname, $dv);
-                        break;
-                    case 'array':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->jwtArrayClaim('%s');", $i, $cname);
-                        break;
-                    default:
-                        $codeParts[] = sprintf("$tab1\$arg%d = null;", $i);
-                        break;
-                }
+                $codeParts[] = match ($argInfo['type']) {
+                    'int' => sprintf("$tab1\$arg%d = \$req->jwtIntCliam('%s', '%s');", $i, $cname, $dv),
+                    'float' => sprintf("$tab1\$arg%d = \$req->jwtFloatClaim('%s', '%s');", $i, $cname, $dv),
+                    'bool' => sprintf("$tab1\$arg%d = \$req->jwtBooleanClaim('%s', '%s');", $i, $cname, $dv),
+                    'string' => sprintf("$tab1\$arg%d = \$req->jwtStringClaim('%s', '%s');", $i, $cname, $dv),
+                    'array' => sprintf("$tab1\$arg%d = \$req->jwtArrayClaim('%s');", $i, $cname),
+                    default => sprintf("$tab1\$arg%d = null;", $i),
+                };
 
                 $argList[] = sprintf("\$arg%d", $i);
                 continue;
@@ -758,5 +734,25 @@ final class RouteRulesBuilder {
     {
         $contents = file_get_contents(__DIR__ . '/route_rules_cache.tpl');
         return is_string($contents) ? $contents : '';
+    }
+
+    private static function buildAnno(ReflectionAttribute $attr): ?object
+    {
+        $className = StringUtils::ensureLeft($attr->getName(), "\\");
+
+        try {
+            $clazz = new ReflectionClass($className);
+            $arguments = $attr->getArguments();
+
+            if (is_array($arguments) && !empty($arguments)) {
+                $anno = $clazz->newInstance(...$arguments);
+            } else {
+                $anno = $clazz->newInstance();
+            }
+        } catch (Throwable) {
+            $anno = null;
+        }
+
+        return is_object($anno) ? $anno : null;
     }
 }

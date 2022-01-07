@@ -2,57 +2,33 @@
 
 namespace phpboot\annotation;
 
+use Attribute;
 use phpboot\common\Cast;
 
-/**
- * @Annotation
- */
+#[Attribute(Attribute::TARGET_METHOD)]
 final class JwtClaim
 {
     /**
      * @var string
      */
-    private $name;
+    private string $name;
 
     /**
      * @var string
      */
-    private $defaultValue;
+    private string $defaultValue;
 
-    public function __construct($arg0 = null)
+    public function __construct(string $name = '', string $defaultValue = '')
     {
-        $name = '';
-        $defaultValue = '';
-
-        if (is_string($arg0)) {
-            $name = $arg0;
-        } else if (is_array($arg0)) {
-            if (is_string($arg0['value'])) {
-                $name = $arg0['value'];
-            } else if (is_string($arg0['name'])) {
-                $name = $arg0['name'];
-            }
-
-            if (isset($arg0['defaultValue'])) {
-                $defaultValue = Cast::toString($arg0['defaultValue']);
-            }
-        }
-
-        $this->name = empty($name) ? '' : $name;
+        $this->name = $name;
         $this->defaultValue = $defaultValue;
     }
 
-    /**
-     * @return string
-     */
     public function getName(): string
     {
         return $this->name;
     }
 
-    /**
-     * @return string
-     */
     public function getDefaultValue(): string
     {
         return $this->defaultValue;

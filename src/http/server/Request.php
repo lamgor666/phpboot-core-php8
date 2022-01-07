@@ -2,8 +2,9 @@
 
 namespace phpboot\http\server;
 
-use Lcobucci\JWT\Parser;
+use Lcobucci\JWT\Encoding\JoseEncoder;
 use Lcobucci\JWT\Token;
+use Lcobucci\JWT\Token\Parser;
 use phpboot\common\Cast;
 use phpboot\common\constant\Regexp;
 use phpboot\common\constant\ReqParamSecurityMode as SecurityMode;
@@ -17,71 +18,24 @@ use Throwable;
 
 final class Request
 {
-
-    /**
-     * @var mixed
-     */
-    private $swooleHttpRequest = null;
-
-    /**
-     * @var string
-     */
-    private $protocolVersion = '1.1';
-
-    /**
-     * @var string
-     */
-    private $httpMethod = 'GET';
-
-    /**
-     * @var array
-     */
-    private $headers = [];
-
-    /**
-     * @var array
-     */
-    private $queryParams = [];
-
-    /**
-     * @var array
-     */
-    private $formData = [];
-
-    /**
-     * @var string
-     */
-    private $body = '';
+    private mixed $swooleHttpRequest = null;
+    private string $protocolVersion = '1.1';
+    private string $httpMethod = 'GET';
+    private array $headers = [];
+    private array $queryParams = [];
+    private array $formData = [];
+    private string $body = '';
 
     /**
      * @var UploadedFile[]
      */
-    private $uploadedFiles = [];
+    private array $uploadedFiles = [];
 
-    /**
-     * @var string|float
-     */
-    private $execStart;
-
-    /**
-     * @var Token|null
-     */
-    private $jwt = null;
-
-    /**
-     * @var array
-     */
-    private $serverParams = [];
-
-    /**
-     * @var array
-     */
-    private $cookieParams = [];
-
-    /**
-     * @var array
-     */
-    private $contextParams = [];
+    private string|float $execStart;
+    private ?Token $jwt = null;
+    private array $serverParams = [];
+    private array $cookieParams = [];
+    private array $contextParams = [];
 
     private function __construct($swooleHttpRequest = null)
     {
@@ -149,11 +103,7 @@ final class Request
         return $this->serverParams;
     }
 
-    /**
-     * @param string $name
-     * @return mixed
-     */
-    public function getServerParam(string $name)
+    public function getServerParam(string $name): mixed
     {
        foreach ($this->serverParams as $key => $value) {
             if (StringUtils::equals($key, $name, true)) {
@@ -235,10 +185,7 @@ final class Request
         return ArrayUtils::requestParams($map1, $rules);
     }
 
-    /**
-     * @return array|object|null
-     */
-    public function getParsedBody()
+    public function getParsedBody(): array|object|null
     {
         $contentType = $this->headers['Content-Type'];
 
@@ -452,14 +399,11 @@ final class Request
             return $dv;
         }
 
-        switch ($securityMode) {
-            case SecurityMode::HTML_PURIFY:
-                return HtmlPurifier::purify($value);
-            case SecurityMode::STRIP_TAGS:
-                return strip_tags($value);
-            default:
-                return $value;
-        }
+        return match ($securityMode) {
+            SecurityMode::HTML_PURIFY => HtmlPurifier::purify($value),
+            SecurityMode::STRIP_TAGS => strip_tags($value),
+            default => $value,
+        };
     }
 
     public function requestParamAsArray(string $name): array
@@ -469,11 +413,7 @@ final class Request
         return is_array($ret) ? $ret : [];
     }
 
-    /**
-     * @param string|array $rules
-     * @return array
-     */
-    public function getRequestParams($rules): array
+    public function getRequestParams(string|array $rules): array
     {
         return ArrayUtils::requestParams(array_merge($this->queryParams, $this->formData), $rules);
     }
@@ -483,10 +423,7 @@ final class Request
         return $this->jwt;
     }
 
-    /**
-     * @return string|float
-     */
-    public function getExecStart()
+    public function getExecStart(): string|float
     {
         return $this->execStart;
     }
@@ -520,7 +457,7 @@ final class Request
         if ($swooleMode) {
             try {
                 $map1 = $this->swooleHttpRequest->header;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $map1 = null;
             }
         } else {
@@ -563,7 +500,7 @@ final class Request
         if (Swoole::isSwooleHttpRequest($req)) {
             try {
                 $map1 = $req->get;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $map1 = null;
             }
         } else {
@@ -590,7 +527,7 @@ final class Request
         if (Swoole::isSwooleHttpRequest($req)) {
             try {
                 $map1 = $req->post;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $map1 = null;
             }
         } else {
@@ -636,7 +573,7 @@ final class Request
             if (method_exists($req, 'getContent')) {
                 try {
                     return Cast::toString($req->getContent());
-                } catch (Throwable $ex) {
+                } catch (Throwable) {
                     return '';
                 }
             }
@@ -644,7 +581,7 @@ final class Request
             if (method_exists($req, 'rawContent')) {
                 try {
                     return Cast::toString($req->rawContent());
-                } catch (Throwable $ex) {
+                } catch (Throwable) {
                     return '';
                 }
             }
@@ -662,7 +599,7 @@ final class Request
         if (Swoole::isSwooleHttpRequest($req)) {
             try {
                 $map1 = $req->files;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $map1 = null;
             }
         } else {
@@ -707,13 +644,13 @@ final class Request
 
         $token = preg_replace('/[\x20\t]+/', ' ', trim($token));
 
-        if (strpos($token, ' ') !== false) {
+        if (str_contains($token, ' ')) {
             $token = StringUtils::substringAfterLast($token, ' ');
         }
 
         try {
-            $jwt = (new Parser())->parse($token);
-        } catch (Throwable $ex) {
+            $jwt = (new Parser(new JoseEncoder()))->parse($token);
+        } catch (Throwable) {
             $jwt = null;
         }
 
@@ -727,7 +664,7 @@ final class Request
         if (is_object($req)) {
             try {
                 $map1 = $req->server;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $map1 = null;
             }
         } else {
@@ -754,7 +691,7 @@ final class Request
         if (is_object($req)) {
             try {
                 $map1 = $req->cookie;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $map1 = null;
             }
         } else {

@@ -14,7 +14,7 @@ final class DataValidator
     /**
      * @var RuleChecker[]
      */
-    private static $customRuleCheckers = [];
+    private static array $customRuleCheckers = [];
 
     private function __construct()
     {
@@ -38,13 +38,7 @@ final class DataValidator
         self::$customRuleCheckers[] = $checker;
     }
 
-    /**
-     * @param array $data
-     * @param array $rules
-     * @param bool $failfast
-     * @return array|string
-     */
-    public static function validate(array $data, array $rules, bool $failfast = false)
+    public static function validate(array $data, array $rules, bool $failfast = false): array|string
     {
         if (!ArrayUtils::isStringArray($rules)) {
             return $failfast ? '' : [];
@@ -59,24 +53,24 @@ final class DataValidator
             $checkValue = '';
             $errorTips = '';
 
-            if (strpos($rule, '@CheckOnNotEmpty') !== false || strpos($rule, '@WithNotEmpty') !== false) {
+            if (str_contains($rule, '@CheckOnNotEmpty') || str_contains($rule, '@WithNotEmpty')) {
                 $checkOnNotEmpty = true;
                 $rule = str_replace('@CheckOnNotEmpty', '', $rule);
                 $rule = str_replace('@WithNotEmpty', '', $rule);
             }
 
-            if (strpos($rule, '@msg:') !== false) {
+            if (str_contains($rule, '@msg:')) {
                 $errorTips = StringUtils::substringAfterLast($rule, '@');
                 $errorTips = preg_replace('/^msg:[\x20\t]*/', '', $errorTips);
                 $errorTips = trim($errorTips);
                 $rule = StringUtils::substringBeforeLast($rule, '@');
             }
 
-            if (strpos($rule, '@') !== false) {
+            if (str_contains($rule, '@')) {
                 $fieldName = trim(StringUtils::substringBefore($rule, '@'));
                 $validator = StringUtils::substringAfter($rule, '@');
 
-                if (strpos($validator, ':') !== false) {
+                if (str_contains($validator, ':')) {
                     $checkValue = trim(StringUtils::substringAfter($validator, ':'));
                     $validator = trim(StringUtils::substringBefore($validator, ':'));
                 }
@@ -85,23 +79,13 @@ final class DataValidator
             }
 
             if (empty($errorTips)) {
-                switch ($validator) {
-                    case 'Mobile':
-                        $errorTips = '不是有效的手机号码';
-                        break;
-                    case 'Email':
-                        $errorTips = '不是有效的邮箱地址';
-                        break;
-                    case 'PasswordTooSimple':
-                        $errorTips = '密码过于简单';
-                        break;
-                    case 'Idcard':
-                        $errorTips = '不是有效的身份证号码';
-                        break;
-                    default:
-                        $errorTips = '必须填写';
-                        break;
-                }
+                $errorTips = match ($validator) {
+                    'Mobile' => '不是有效的手机号码',
+                    'Email' => '不是有效的邮箱地址',
+                    'PasswordTooSimple' => '密码过于简单',
+                    'Idcard' => '不是有效的身份证号码',
+                    default => '必须填写',
+                };
             }
 
             if (!$failfast && isset($validateErrors[$fieldName])) {

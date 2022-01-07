@@ -11,20 +11,9 @@ final class ImageResponse implements ResponsePayload
 {
     use MapAbleTrait;
 
-    /**
-     * @var string
-     */
-    private $filepath = '';
-
-    /**
-     * @var string
-     */
-    private $buf = '';
-
-    /**
-     * @var string
-     */
-    private $mimeType = '';
+    private string $filepath = '';
+    private string $buf = '';
+    private string $mimeType = '';
 
     private function __construct(?array $data = null)
     {
@@ -55,7 +44,7 @@ final class ImageResponse implements ResponsePayload
             }
 
             return new self(compact('filepath', 'mimeType'));
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             return new self();
         }
     }
@@ -71,10 +60,7 @@ final class ImageResponse implements ResponsePayload
         return $this->mimeType;
     }
 
-    /**
-     * @return string|HttpError
-     */
-    public function getContents()
+    public function getContents(): string|HttpError
     {
         $mimeType = $this->mimeType;
 

@@ -9,40 +9,14 @@ use Throwable;
 
 final class JwtSettings
 {
-    /**
-     * @var array
-     */
-    private static $map1 = [];
+    private static array $map1 = [];
 
-    /**
-     * @var string
-     */
-    private $key;
-
-    /**
-     * @var string
-     */
-    private $issuer = '';
-
-    /**
-     * @var string
-     */
-    private $publicKeyPemFile = '';
-
-    /**
-     * @var string
-     */
-    private $privateKeyPemFile = '';
-
-    /**
-     * @var int
-     */
-    private $ttl = 0;
-
-    /**
-     * @var int
-     */
-    private $refreshTokenTtl = 0;
+    private string $key;
+    private string $issuer = '';
+    private string $publicKeyPemFile = '';
+    private string $privateKeyPemFile = '';
+    private int $ttl = 0;
+    private int $refreshTokenTtl = 0;
 
     private function __construct(string $key, array $settings)
     {
@@ -105,7 +79,7 @@ final class JwtSettings
 
             try {
                 $this->$pname = $value;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
             }
         }
     }

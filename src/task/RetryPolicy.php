@@ -16,21 +16,21 @@ final class RetryPolicy
      *
      * @var int
      */
-    private $failTimes = 0;
+    private int $failTimes = 0;
 
     /**
      * 最大重试次数
      *
      * @var int
      */
-    private $retryAttempts = 3;
+    private int $retryAttempts = 3;
 
     /**
      * 重试间隔（秒）
      *
      * @var int
      */
-    private $retryInterval = 60;
+    private int $retryInterval = 60;
 
     private function __construct(?array $data = null)
     {

@@ -4,10 +4,7 @@ namespace phpboot\exception;
 
 final class HttpError
 {
-    /**
-     * @var int
-     */
-    private $statusCode;
+    private int $statusCode;
 
     private function __construct(int $statusCode)
     {

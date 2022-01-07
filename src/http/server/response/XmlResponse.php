@@ -8,10 +8,7 @@ use phpboot\common\util\ArrayUtils;
 
 class XmlResponse implements ResponsePayload
 {
-    /**
-     * @var string
-     */
-    private $contents;
+    private string $contents;
 
     private function __construct(string $contents = '')
     {
@@ -23,12 +20,7 @@ class XmlResponse implements ResponsePayload
         return new self($contents);
     }
 
-    /**
-     * @param array $map1
-     * @param array|string|null $cdataKeys
-     * @return XmlResponse
-     */
-    public static function fromMap(array $map1, $cdataKeys = null): self
+    public static function fromMap(array $map1, array|string|null $cdataKeys = null): self
     {
         $_cdataKeys = [];
 
@@ -46,11 +38,7 @@ class XmlResponse implements ResponsePayload
         return 'text/xml; charset=utf-8';
     }
 
-    /**
-     * @return string|HttpError
-     * @noinspection PhpReturnDocTypeMismatchInspection
-     */
-    public function getContents()
+    public function getContents(): string|HttpError
     {
         return $this->contents;
     }

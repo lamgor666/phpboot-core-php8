@@ -37,7 +37,7 @@ class RedisCache implements CacheInterface
             }
 
             return $entry['value'];
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             return $default;
         }
     }
@@ -64,7 +64,7 @@ class RedisCache implements CacheInterface
             } else {
                 $result = RedisCmd::set($cacheKey, $contents);
             }
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             $result = false;
         }
 
@@ -77,7 +77,7 @@ class RedisCache implements CacheInterface
 
         try {
             $n1 = RedisCmd::del($cacheKey);
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             $n1 = 0;
         }
 
@@ -95,7 +95,7 @@ class RedisCache implements CacheInterface
 
         try {
             $flag = RedisCmd::exists($cacheKey);
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             $flag = false;
         }
 

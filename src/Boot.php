@@ -26,10 +26,7 @@ use Throwable;
 
 final class Boot
 {
-    /**
-     * @var array
-     */
-    private static $map1 = [];
+    private static array $map1 = [];
 
     private function __construct()
     {
@@ -45,7 +42,7 @@ final class Boot
 
         try {
             $cache = include($filepath);
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             $cache = null;
         }
 
@@ -162,7 +159,7 @@ final class Boot
             if ($cacheFile !== '' && is_file($cacheFile)) {
                 try {
                     $cache = include(RouteRulesBuilder::cacheFile());
-                } catch (Throwable $ex) {
+                } catch (Throwable) {
                     $cache = [];
                 }
 
@@ -260,7 +257,7 @@ final class Boot
             $found = false;
 
             foreach ($handlers as $handler) {
-                if (strpos($handler->getExceptionClassName(), $clazz) !== false) {
+                if (str_contains($handler->getExceptionClassName(), $clazz)) {
                     $found = true;
                     break;
                 }
@@ -371,7 +368,7 @@ final class Boot
 
         try {
             $bean = new $clazz();
-        } catch (Throwable $ex) {
+        } catch (Throwable) {
             return;
         }
 

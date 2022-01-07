@@ -13,10 +13,7 @@ class FileCache implements CacheInterface
 {
     use CacheInterfaceTrait;
 
-    /**
-     * @var string
-     */
-    private $cacheDir = '';
+    private string $cacheDir = '';
 
     public function __construct(?string $cacheDir = null)
     {
@@ -43,7 +40,7 @@ class FileCache implements CacheInterface
         if (Swoole::inCoroutineMode(true)) {
             try {
                 $contents = $this->readFromFileAsync($cacheFile);
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 $contents = '';
             }
         } else {
@@ -93,7 +90,7 @@ class FileCache implements CacheInterface
             try {
                 $this->writeToFileAsync($cacheFile, $contents);
                 return true;
-            } catch (Throwable $ex) {
+            } catch (Throwable) {
                 return false;
             }
         }

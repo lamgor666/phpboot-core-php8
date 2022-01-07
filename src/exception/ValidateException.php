@@ -6,15 +6,8 @@ use RuntimeException;
 
 final class ValidateException extends RuntimeException
 {
-    /**
-     * @var bool
-     */
-    private $failfast = false;
-
-    /**
-     * @var array|null
-     */
-    private $validateErrors = null;
+    private bool $failfast = false;
+    private ?array $validateErrors = null;
 
     public function __construct(...$args)
     {

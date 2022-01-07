@@ -8,20 +8,9 @@ use RuntimeException;
 
 class RateLimitException extends RuntimeException
 {
-    /**
-     * @var int
-     */
-    private $total;
-
-    /**
-     * @var int
-     */
-    private $remaining;
-
-    /**
-     * @var string
-     */
-    private $retryAfter;
+    private int $total;
+    private int $remaining;
+    private string $retryAfter;
 
     public function __construct(array $data)
     {

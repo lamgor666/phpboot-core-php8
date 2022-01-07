@@ -58,35 +58,17 @@ final class Response
         '600 Unparseable Response Headers'
     ];
 
-    /**
-     * @var Request
-     */
-    private $req;
-
-    /**
-     * @var mixed
-     */
-    private $swooleHttpResponse = null;
-
-    /**
-     * @var mixed
-     */
-    private $payload = null;
-
-    /**
-     * @var array
-     */
-    private $extraHeaders = [];
+    private Request $req;
+    private mixed $swooleHttpResponse = null;
+    private mixed $payload = null;
+    private array $extraHeaders = [];
 
     /**
      * @var ExceptionHandler[]
      */
-    private $exceptionHandlers = [];
+    private array $exceptionHandlers = [];
 
-    /**
-     * @var CorsSettings|null
-     */
-    private $corsSettings = null;
+    private ?CorsSettings $corsSettings = null;
 
     private function __construct(Request $req, $swooleHttpResponse = null)
     {
@@ -108,10 +90,7 @@ final class Response
         return $this;
     }
 
-    /**
-     * @return mixed
-     */
-    public function getPayload()
+    public function getPayload(): mixed
     {
         return $this->payload;
     }
@@ -337,7 +316,7 @@ final class Response
         $handler = null;
 
         foreach ($this->exceptionHandlers as $it) {
-            if (strpos($it->getExceptionClassName(), $clazz) !== false) {
+            if (str_contains($it->getExceptionClassName(), $clazz)) {
                 $handler = $it;
                 break;
             }

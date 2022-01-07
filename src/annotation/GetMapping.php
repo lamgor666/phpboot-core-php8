@@ -2,33 +2,18 @@
 
 namespace phpboot\annotation;
 
-/**
- * @Annotation
- * @Target("METHOD")
- */
+use Attribute;
+
+#[Attribute(Attribute::TARGET_METHOD)]
 final class GetMapping
 {
-    /**
-     * @var string
-     */
-    private $value;
+    private string $value;
 
-    public function __construct($arg0)
+    public function __construct(string $value)
     {
-        $value = '';
-
-        if (is_string($arg0)) {
-            $value = $arg0;
-        } else if (is_array($arg0) && is_string($arg0['value'])) {
-            $value = $arg0['value'];
-        }
-
         $this->value = $value;
     }
 
-    /**
-     * @return string
-     */
     public function getValue(): string
     {
         return $this->value;

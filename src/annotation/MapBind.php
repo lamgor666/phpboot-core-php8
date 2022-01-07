@@ -2,45 +2,31 @@
 
 namespace phpboot\annotation;
 
+use Attribute;
 use phpboot\common\constant\Regexp;
 use phpboot\common\util\ArrayUtils;
 
-/**
- * @Annotation
- */
+#[Attribute(Attribute::TARGET_METHOD)]
 final class MapBind
 {
     /**
      * @var string[]
      */
-    private $rules;
+    private array $rules;
 
-    public function __construct($arg0 = null)
+    public function __construct(array|string $value)
     {
         $rules = [];
 
-        if (is_string($arg0) && $arg0 !== '') {
-            $rules = preg_split(Regexp::COMMA_SEP, $arg0);
-        } else if (is_array($arg0)) {
-            if (is_string($arg0['value']) && $arg0['value'] !== '') {
-                $rules = preg_split(Regexp::COMMA_SEP, $arg0['value']);
-            } else if (ArrayUtils::isStringArray($arg0['value'])) {
-                $rules = $arg0['value'];
-            } else if (is_string($arg0['rules']) && $arg0['rules'] !== '') {
-                $rules = preg_split(Regexp::COMMA_SEP, $arg0['rules']);
-            } else if (ArrayUtils::isStringArray($arg0['rules'])) {
-                $rules = $arg0['rules'];
-            } else if (ArrayUtils::isStringArray($arg0)) {
-                $rules = $arg0;
-            }
+        if (is_string($value) && $value !== '') {
+            $rules = preg_split(Regexp::COMMA_SEP, $value);
+        } else if (ArrayUtils::isStringArray($value)) {
+            $rules = $value;
         }
 
         $this->rules = $rules;
     }
 
-    /**
-     * @return string[]
-     */
     public function getRules(): array
     {
         return $this->rules;

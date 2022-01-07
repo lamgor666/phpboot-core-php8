@@ -8,15 +8,8 @@ use Throwable;
 
 trait LogAbleTrait
 {
-    /**
-     * @var LoggerInterface|null
-     */
-    private $logger = null;
-
-    /**
-     * @var bool
-     */
-    private $enableLogging = true;
+    private ?LoggerInterface $logger = null;
+    private bool $enableLogging = true;
 
     public function writeDebugLog(string $log, ?array $context = null, bool $force = false): void
     {
@@ -28,23 +21,12 @@ trait LogAbleTrait
         $this->writeLog('info', $log, $context, $force);
     }
 
-    /**
-     * @param string|Throwable $arg0
-     * @param array|null $context
-     * @param bool $force
-     */
-    public function writeErrorLog($arg0, ?array $context = null, bool $force = false): void
+    public function writeErrorLog(string|Throwable $arg0, ?array $context = null, bool $force = false): void
     {
         $this->writeLog('error', $arg0, $context, $force);
     }
 
-    /**
-     * @param string $logLevel
-     * @param string|Throwable $msg
-     * @param array|null $context
-     * @param bool $force
-     */
-    public function writeLog(string $logLevel, $msg, ?array $context = null, bool $force = false): void
+    public function writeLog(string $logLevel, string|Throwable $msg, ?array $context = null, bool $force = false): void
     {
         $logger = $this->logger;
 

@@ -9,10 +9,7 @@ use Throwable;
 
 final class JsonResponse implements ResponsePayload
 {
-    /**
-     * @var mixed
-     */
-    private $payload = null;
+    private mixed $payload = null;
 
     private function __construct($payload = null)
     {
@@ -33,10 +30,7 @@ final class JsonResponse implements ResponsePayload
         return 'application/json; charset=utf-8';
     }
 
-    /**
-     * @return string|HttpError
-     */
-    public function getContents()
+    public function getContents(): string|HttpError
     {
         $payload = $this->payload;
 
@@ -53,7 +47,7 @@ final class JsonResponse implements ResponsePayload
             if (method_exists($payload, 'toMap')) {
                 try {
                     $json = JsonUtils::toJson($payload->toMap());
-                } catch (Throwable $ex) {
+                } catch (Throwable) {
                     $json = '';
                 }
 

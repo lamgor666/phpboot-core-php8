@@ -6,35 +6,12 @@ use phpboot\common\Cast;
 
 final class UploadedFile
 {
-    /**
-     * @var string
-     */
-    private $formFieldName;
-
-    /**
-     * @var string
-     */
-    private $clientFilename;
-
-    /**
-     * @var string
-     */
-    private $clientMediaType;
-
-    /**
-     * @var string
-     */
-    private $tempFilePath = '';
-
-    /**
-     * @var string
-     */
-    private $buf = '';
-
-    /**
-     * @var int
-     */
-    private $error;
+    private string $formFieldName;
+    private string $clientFilename;
+    private string $clientMediaType;
+    private string $tempFilePath = '';
+    private string $buf = '';
+    private int $error;
 
     private function __construct(string $formFieldName, ?array $meta)
     {

@@ -8,8 +8,5 @@ interface ResponsePayload
 {
     public function getContentType(): string;
 
-    /**
-     * @return string|HttpError
-     */
-    public function getContents();
+    public function getContents(): string|HttpError;
 }

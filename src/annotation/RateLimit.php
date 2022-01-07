@@ -2,80 +2,41 @@
 
 namespace phpboot\annotation;
 
-use Doctrine\Common\Annotations\Annotation\Target;
+use Attribute;
 use phpboot\common\Cast;
 
-/**
- * @Annotation
- * @Target("METHOD")
- */
+#[Attribute(Attribute::TARGET_METHOD)]
 final class RateLimit
 {
-    /**
-     * @var int
-     */
-    private $total;
+    private int $total;
+    private int $duration;
+    private bool $limitByIp;
 
-    /**
-     * @var int
-     */
-    private $duration;
-
-    /**
-     * @var bool
-     */
-    private $limitByIp;
-
-    public function __construct(array $values)
+    public function __construct(int $total, int|string $duration, bool $limitByIp = false)
     {
-        $total = 0;
-        $duration = 0;
-        $limitByIp = false;
+        $_duration = 0;
 
-        if (isset($values['total'])) {
-            $n1 = Cast::toInt($values['total']);
-
-            if ($n1 > 0) {
-                $total = $n1;
-            }
-        }
-
-        if (isset($values['duration'])) {
-            $n1 = Cast::toDuration($values['duration']);
-
-            if ($n1 > 0) {
-                $duration = $n1;
-            }
-        }
-
-        if (isset($values['limitByIp'])) {
-            $limitByIp = Cast::toBoolean($values['limitByIp']);
+        if (is_int($duration)) {
+            $_duration = $duration;
+        } else if (is_string($duration)) {
+            $_duration = Cast::toDuration($duration);
         }
 
         $this->total = $total;
-        $this->duration = $duration;
+        $this->duration = $_duration;
         $this->limitByIp = $limitByIp;
     }
 
-    /**
-     * @return int
-     */
     public function getTotal(): int
     {
         return $this->total;
     }
 
-    /**
-     * @return int
-     */
     public function getDuration(): int
     {
         return $this->duration;
     }
 
-    /**
-     * @return bool
-     */
     public function isLimitByIp(): bool
     {
         return $this->limitByIp;
