@@ -14,7 +14,7 @@ final class MapBind
      */
     private array $rules;
 
-    public function __construct(array|string $value)
+    public function __construct(array|string $value = [])
     {
         $rules = [];
 
