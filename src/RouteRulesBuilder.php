@@ -1,7 +1,6 @@
 <?php
 namespace phpboot;
 
-use Lcobucci\JWT\Token;
 use phpboot\annotation\ClientIp;
 use phpboot\annotation\DeleteMapping;
 use phpboot\annotation\GetMapping;
@@ -14,21 +13,19 @@ use phpboot\annotation\PathVariable;
 use phpboot\annotation\PostMapping;
 use phpboot\annotation\PutMapping;
 use phpboot\annotation\RateLimit;
+use phpboot\annotation\RawJwt;
+use phpboot\annotation\RawReq;
 use phpboot\annotation\RequestBody;
 use phpboot\annotation\RequestMapping;
 use phpboot\annotation\RequestParam;
 use phpboot\annotation\UploadedFile;
 use phpboot\annotation\Validate;
-use phpboot\common\constant\RandomStringType;
-use phpboot\common\constant\ReqParamSecurityMode;
 use phpboot\common\util\ArrayUtils;
 use phpboot\common\util\FileUtils;
 use phpboot\common\util\JsonUtils;
 use phpboot\common\util\ReflectUtils;
 use phpboot\common\util\StringUtils;
 use phpboot\common\util\TokenizeUtils;
-use phpboot\http\middleware\Middleware;
-use phpboot\http\server\Request;
 use ReflectionAttribute;
 use ReflectionClass;
 use ReflectionMethod;
@@ -97,8 +94,7 @@ final class RouteRulesBuilder {
             $modules = ['common', 'admin', 'wxapp', 'test'];
         }
 
-        $lines = [];
-        $hidx = 1;
+        $rules = [];
 
         foreach ($modules as $mod) {
             if (!is_string($mod) || $mod === '') {
@@ -120,8 +116,6 @@ final class RouteRulesBuilder {
             if (!is_array($files) || empty($files)) {
                 continue;
             }
-
-            $rules = [];
 
             foreach ($files as $filepath) {
                 $filepath = str_replace("\\", '/', $filepath);
@@ -216,64 +210,18 @@ final class RouteRulesBuilder {
                     }
                 }
             }
-
-            if (empty($rules)) {
-                continue;
-            }
-
-            foreach ($rules as $rule) {
-                if ($rule['httpMethod'] == 'ALL') {
-                    $httpMethods = "['GET', 'POST']";
-                } else {
-                    $httpMethods = sprintf("['%s']", $rule['httpMethod']);
-                }
-
-                array_push(
-                    $lines,
-                    sprintf("\$route%03d = new \\Symfony\\Component\\Routing\\Route('%s');", $hidx, $rule['requestMapping']),
-                    sprintf("\$route%03d->setMethods(%s);", $hidx, $httpMethods),
-                    sprintf("\$route%03d->addOptions(['handlerName' => '%s']);", $hidx, $rule['handler']),
-                    sprintf("\$routeRulesCache['routeItems'][] = \$route%03d;", $hidx),
-                    ''
-                );
-
-                array_push($lines, ...self::buildHandlerCodeParts($rule));
-                $lines[] = '';
-                $hidx++;
-            }
         }
 
-        if (empty($lines)) {
+        if (empty($rules)) {
             return;
         }
 
-        $contnets = self::getTmplContents();
+        $sb = [
+            "<?php\n",
+            'return ' . var_export($rules, true) . ";\n"
+        ];
 
-        if (empty($contnets)) {
-            return;
-        }
-
-        $dir = dirname($cacheFile);
-
-        if (!is_dir($dir)) {
-            mkdir($dir, 0755, true);
-        }
-
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $contnets = str_replace('// autogen codes', rtrim(implode("\n", $lines)), $contnets);
-        $fp = fopen($cacheFile, 'w');
-
-        if (!is_resource($fp)) {
-            return;
-        }
-
-        flock($fp, LOCK_EX);
-        fwrite($fp, $contnets);
-        flock($fp, LOCK_UN);
-        fclose($fp);
+        file_put_contents($cacheFile, implode('', $sb));
     }
 
     private static function getHandlerFuncArgs(ReflectionMethod $method): array
@@ -286,13 +234,85 @@ final class RouteRulesBuilder {
             $attrs = [];
         }
 
-        $annos = [];
+        $entries = [];
 
         foreach ($attrs as $attr) {
-            $annos[] = self::buildAnno($attr);
+            $anno = self::buildAnno($attr);
+
+            if ($anno instanceof RawReq) {
+                $entries[] = ['rawReq' => true];
+                continue;
+            }
+
+            if ($anno instanceof RawJwt) {
+                $entries[] = ['rawJwt' => true];
+                continue;
+            }
+
+            if ($anno instanceof ClientIp) {
+                $entries[] = ['clientIp' => true];
+                continue;
+            }
+
+            if ($anno instanceof HttpHeader) {
+                $entries[] = ['httpHeaderName' => $anno->getName()];
+                continue;
+            }
+
+            if ($anno instanceof PathVariable) {
+                $entries[] = [
+                    'pathVariableName' => empty($anno->getName()) ? '{argName}' : $anno->getName(),
+                    'defaultValue' => $anno->getDefaultValue()
+                ];
+
+                continue;
+            }
+
+            if ($anno instanceof JwtClaim) {
+                $entries[] = [
+                    'jwtClaimName' => empty($anno->getName()) ? '{argName}' : $anno->getName(),
+                    'defaultValue' => $anno->getDefaultValue()
+                ];
+
+                continue;
+            }
+
+            if ($anno instanceof RequestParam) {
+                $entries[] = [
+                    'reqParamName' => empty($anno->getName()) ? '{argName}' : $anno->getName(),
+                    'decimal' => $anno->isDecimal(),
+                    'securityMode' => $anno->getSecurityMode(),
+                    'defaultValue' => $anno->getDefaultValue()
+                ];
+
+                continue;
+            }
+
+            if ($anno instanceof MapBind) {
+                $entries[] = [
+                    'mapBind' => true,
+                    'mapBindRules' => $anno->getRules()
+                ];
+
+                continue;
+            }
+
+            if ($anno instanceof UploadedFile) {
+                $entries[] = [
+                    'uploadedFile' => true,
+                    'uploadedFileKey' => $anno->getValue()
+                ];
+
+                continue;
+            }
+
+            if ($anno instanceof RequestBody) {
+                $map1['rawBody'] = true;
+                $entries[] = ['rawBody' => true];
+            }
         }
 
-        $n1 = count($annos) - 1;
+        $n1 = count($entries) - 1;
 
         foreach ($params as $i => $p) {
             $type = $p->getType();
@@ -313,78 +333,11 @@ final class RouteRulesBuilder {
                 $map1['nullable'] = true;
             }
 
-            if (str_contains($typeName, Request::class)) {
-                $map1['rawReq'] = true;
-                $params[$i] = $map1;
-                continue;
-            }
-
-            if (str_contains($typeName, Token::class)) {
-                $map1['rawJwt'] = true;
-                $params[$i] = $map1;
-                continue;
-            }
-
             if ($i <= $n1) {
-                $anno = $annos[$i];
-
-                if ($anno instanceof ClientIp) {
-                    $map1['clientIp'] = true;
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof HttpHeader) {
-                    $map1['httpHeaderName'] = $anno->getName();
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof JwtClaim) {
-                    $map1['jwtClaimName'] = empty($anno->getName()) ? $p->getName() : $anno->getName();
-                    $map1['defaultValue'] = $anno->getDefaultValue();
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof RequestParam) {
-                    $map1['reqParamName'] = empty($anno->getName()) ? $p->getName() : $anno->getName();
-                    $map1['decimal'] = $anno->isDecimal();
-                    $map1['securityMode'] = $anno->getSecurityMode();
-                    $map1['defaultValue'] = $anno->getDefaultValue();
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof PathVariable) {
-                    $map1['pathVariableName'] = empty($anno->getName()) ? $p->getName() : $anno->getName();
-                    $map1['defaultValue'] = $anno->getDefaultValue();
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof MapBind) {
-                    $map1['mapBind'] = true;
-                    $map1['mapBindRules'] = $anno->getRules();
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof UploadedFile) {
-                    $map1['uploadedFile'] = true;
-                    $map1['uploadedFileKey'] = $anno->getValue();
-                    $params[$i] = $map1;
-                    continue;
-                }
-
-                if ($anno instanceof RequestBody) {
-                    $map1['rawBody'] = true;
-                    $params[$i] = $map1;
-                    continue;
-                }
+                $params[$i] = array_merge($map1, $entries[$i]);
+            } else {
+                $params[$i] = "null";
             }
-
-            $params[$i] = "null";
         }
 
         return $params;
@@ -477,283 +430,6 @@ final class RouteRulesBuilder {
         }
 
         return $s1 . StringUtils::ensureLeft($requestMapping, '/');
-    }
-
-    private static function buildHandlerCodeParts(array $rule): array
-    {
-        $tab1 = str_repeat(' ', 4);
-        $tab2 = str_repeat(' ', 8);
-
-        $parts = [
-            sprintf("\$routeRulesCache['handlers']['%s'] = function (\$req, \$resp) {", $rule['handler']),
-            sprintf("$tab1\$req->withContextParam('handlerName', '%s')", $rule['handler'])
-        ];
-
-        if ($rule['rateLimitSettings'] !== '') {
-            $parts[] = sprintf("$tab1\$req->withContextParam('rateLimitSettings', '%s')", $rule['rateLimitSettings']);
-        }
-
-        if ($rule['jwtAuthKey'] !== '') {
-            $parts[] = sprintf("$tab1\$req->withContextParam('jwtAuthKey', '%s')", $rule['jwtAuthKey']);
-        }
-
-        if ($rule['validateRules'] !== '') {
-            $parts[] = sprintf("$tab1\$req->withContextParam('validateRules', '%s')", $rule['validateRules']);
-        }
-
-        if ($rule['extraAnnos'] !== '') {
-            $parts[] = sprintf("$tab1\$req->withContextParam('extraAnnos', '%s')", $rule['extraAnnos']);
-        }
-
-        $parts = self::buildPreHandleMiddlewraesParts($parts);
-        $beanClass = StringUtils::substringBefore($rule['handler'], '@');
-        $beanClass = StringUtils::ensureLeft($beanClass, "\\");
-        $funcName = StringUtils::substringAfter($rule['handler'], '@');
-
-        array_push(
-            $parts,
-            '',
-            "{$tab1}if (\\phpboot\\common\\swoole\\Swoole::inCoroutineMode(true)) {",
-            sprintf("$tab2\$bean = \\phpboot\\Boot::getControllerBean('%s');", $beanClass),
-            "$tab2} else {",
-            sprintf("$tab2\$bean = new %s();", $beanClass),
-            "$tab1}",
-            ''
-        );
-
-        list($parts, $argList) = self::buildArgList($rule, $parts);
-        $parts[] = sprintf("$tab1\$payload = \$bean->%s(%s);", $funcName, implode(', ', $argList));
-        $parts = self::buildPostHandleMiddlewaresParts($parts);
-
-        array_push(
-            $parts,
-            "$tab1\$resp->withPayload(\$payload);",
-            '};',
-            ''
-        );
-
-        return $parts;
-    }
-
-    private static function buildPreHandleMiddlewraesParts(array $codeParts): array
-    {
-        $tab1 = str_repeat(' ', 4);
-        $tab2 = str_repeat(' ', 8);
-        $middlewareNames = [];
-
-        $middlewares = collect(Boot::getMiddlewares())->filter(function (Middleware $mid) {
-            return $mid->getType() === Middleware::PRE_HANDLE_MIDDLEWARE;
-        })->sortBy(function (Middleware $mid) {
-            return $mid->getOrder();
-        }, SORT_NUMERIC);
-
-        /* @var Middleware $mid */
-        foreach ($middlewares->toArray() as $mid) {
-            $midClazz = StringUtils::ensureLeft(get_class($mid), "\\");
-            $rnd = StringUtils::getRandomString(8, RandomStringType::ALNUM);
-
-            if (method_exists($midClazz, 'create')) {
-                $codeParts[] = sprintf("$tab1\$mid_%s = %s::create();", $rnd, $midClazz);
-            } else {
-                $codeParts[] = sprintf("$tab1\$mid_%s = new %s();", $rnd, $midClazz);
-            }
-
-            $middlewareNames[] = sprintf("\$mid_%s", $rnd);
-        }
-
-        if (!empty($middlewareNames)) {
-            array_push(
-                $codeParts,
-                sprintf("$tab1\$preHandleMiddlewares = [%s];", implode(', ', $middlewareNames)),
-                '',
-                "{$tab1}foreach (\$preHandleMiddlewares as \$mid) {",
-                "$tab2\$mid->handle(\$req, \$resp);",
-                "$tab1}",
-                ''
-            );
-        }
-
-        return $codeParts;
-    }
-
-    private static function buildPostHandleMiddlewaresParts(array $codeParts): array
-    {
-        $tab1 = str_repeat(' ', 4);
-        $tab2 = str_repeat(' ', 8);
-        $middlewareNames = [];
-
-        $middlewares = collect(Boot::getMiddlewares())->filter(function (Middleware $mid) {
-            return $mid->getType() === Middleware::POST_HANDLE_MIDDLEWARE;
-        })->sortBy(function (Middleware $mid) {
-            return $mid->getOrder();
-        }, SORT_NUMERIC);
-
-        /* @var Middleware $mid */
-        foreach ($middlewares->toArray() as $mid) {
-            $midClazz = StringUtils::ensureLeft(get_class($mid), "\\");
-            $rnd = StringUtils::getRandomString(8, RandomStringType::ALNUM);
-
-            if (method_exists($midClazz, 'create')) {
-                $codeParts[] = sprintf("$tab1\$mid_%s = %s::create();", $rnd, $midClazz);
-            } else {
-                $codeParts[] = sprintf("$tab1\$mid_%s = new %s();", $rnd, $midClazz);
-            }
-
-            $middlewareNames[] = sprintf("\$mid_%s", $rnd);
-        }
-
-        if (!empty($middlewareNames)) {
-            array_push(
-                $codeParts,
-                sprintf("$tab1\$postHandleMiddlewares = [%s];", implode(', ', $middlewareNames)),
-                '',
-                "{$tab1}foreach (\$postHandleMiddlewares as \$mid) {",
-                "$tab2\$mid->handle(\$req, \$resp);",
-                "$tab1}",
-                ''
-            );
-        }
-
-        return $codeParts;
-    }
-
-    private static function buildArgList(array $rule, array $codeParts): array
-    {
-        $tab1 = str_repeat(' ', 4);
-        $argList = [];
-
-        foreach ($rule['handlerFuncArgs'] as $i => $argInfo) {
-            if (!is_array($argInfo)) {
-                $codeParts[] = sprintf("$tab1\$arg%d = null;", $i);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['rawReq']) {
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req;", $i);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['rawJwt']) {
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req->getJwt();", $i);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['clientIp']) {
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req->getClientIp();", $i);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['httpHeaderName'] !== '') {
-                $hname = $argInfo['httpHeaderName'];
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req->getHeader('%s');", $i, $hname);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['rawBody']) {
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req->getRawBody();", $i);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['uploadedFileKey'] !== '') {
-                $fkey = $argInfo['uploadedFileKey'];
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req->getUploadedFile('%s');", $i, $fkey);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['pathvariableName'] !== '') {
-                $pname = $argInfo['pathvariableName'];
-                $dv = $argInfo['defaultValue'];
-
-                $codeParts[] = match ($argInfo['type']) {
-                    'int' => sprintf("$tab1\$arg%d = \$req->pathVariableAsInt('%s', '%s');", $i, $pname, $dv),
-                    'float' => sprintf("$tab1\$arg%d = \$req->pathVariableAsFloat('%s', '%s');", $i, $pname, $dv),
-                    'bool' => sprintf("$tab1\$arg%d = \$req->pathVariableAsBoolean('%s', '%s');", $i, $pname, $dv),
-                    'string' => sprintf("$tab1\$arg%d = \$req->pathVariableAsString('%s', '%s');", $i, $pname, $dv),
-                    default => sprintf("$tab1\$arg%d = null;", $i),
-                };
-
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['jwtClaimName'] !== '') {
-                $cname = $argInfo['jwtClaimName'];
-                $dv = $argInfo['defaultValue'];
-
-                $codeParts[] = match ($argInfo['type']) {
-                    'int' => sprintf("$tab1\$arg%d = \$req->jwtIntCliam('%s', '%s');", $i, $cname, $dv),
-                    'float' => sprintf("$tab1\$arg%d = \$req->jwtFloatClaim('%s', '%s');", $i, $cname, $dv),
-                    'bool' => sprintf("$tab1\$arg%d = \$req->jwtBooleanClaim('%s', '%s');", $i, $cname, $dv),
-                    'string' => sprintf("$tab1\$arg%d = \$req->jwtStringClaim('%s', '%s');", $i, $cname, $dv),
-                    'array' => sprintf("$tab1\$arg%d = \$req->jwtArrayClaim('%s');", $i, $cname),
-                    default => sprintf("$tab1\$arg%d = null;", $i),
-                };
-
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['reqParamName'] !== '') {
-                $rname = $argInfo['reqParamName'];
-                $dv = $argInfo['defaultValue'];
-
-                switch ($argInfo['type']) {
-                    case 'int':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->requestParamAsInt('%s', '%s');", $i, $rname, $dv);
-                        break;
-                    case 'float':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->requestParamAsFloat('%s', '%s');", $i, $rname, $dv);
-                        break;
-                    case 'bool':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->requestParamAsBoolean('%s', '%s');", $i, $rname, $dv);
-                        break;
-                    case 'string':
-                        if ($argInfo['decimal']) {
-                            $securityMode = ReqParamSecurityMode::STRIP_TAGS;
-                            $codeParts[] = sprintf("$tab1\$arg%d = bcadd(\$req->requestParamAsString('%s', %d, '%s'), 0, 2);", $i, $rname, $securityMode, $dv);
-                        } else {
-                            $securityMode = $argInfo['securityMode'];
-                            $codeParts[] = sprintf("$tab1\$arg%d = \$req->requestParamAsString('%s', %d, '%s');", $i, $rname, $securityMode, $dv);
-                        }
-
-                        break;
-                    case 'array':
-                        $codeParts[] = sprintf("$tab1\$arg%d = \$req->requestParamAsArray('%s');", $i, $rname);
-                        break;
-                    default:
-                        $codeParts[] = sprintf("$tab1\$arg%d = null;", $i);
-                        break;
-                }
-
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            if ($argInfo['mapBind']) {
-                $mapBindRules = implode(', ', $argInfo['mapBindRules']);
-                $codeParts[] = sprintf("$tab1\$arg%d = \$req->getMap('%s');", $i, $mapBindRules);
-                $argList[] = sprintf("\$arg%d", $i);
-                continue;
-            }
-
-            $codeParts[] = sprintf("$tab1\$arg%d = null;", $i);
-            $argList[] = sprintf("\$arg%d", $i);
-        }
-
-        return [$codeParts, $argList];
-    }
-
-    private static function getTmplContents(): string
-    {
-        $contents = file_get_contents(__DIR__ . '/route_rules_cache.tpl');
-        return is_string($contents) ? $contents : '';
     }
 
     private static function buildAnno(ReflectionAttribute $attr): ?object
