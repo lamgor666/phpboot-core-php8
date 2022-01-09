@@ -124,6 +124,12 @@ final class Response
 
     private function sendByFpm(): void
     {
+        $routeRulesCacheFile = $this->req->getContextParam('routeRulesCacheFile');
+
+        if (is_string($routeRulesCacheFile) && $routeRulesCacheFile !== '') {
+            unlink($routeRulesCacheFile);
+        }
+
         $protocolVersion = strtoupper($this->req->getProtocolVersion());
         list($statusCode, $headers, $contents) = $this->preSend();
 

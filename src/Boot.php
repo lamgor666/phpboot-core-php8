@@ -60,17 +60,9 @@ final class Boot
         }
     }
 
-    public static function gzipOutputEnabled(?bool $flag = null, ?int $workerId = null): bool
+    public static function gzipOutputEnabled(?bool $flag = null): bool
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "gzipOutputEnabled_worker$workerId";
-        } else {
-            $key = 'gzipOutputEnabled_noworker';
-        }
+        $key = 'gzip_output_enabled';
 
         if (is_bool($flag)) {
             self::$map1[$key] = $flag;
@@ -122,12 +114,16 @@ final class Boot
         }
     }
 
-    public static function handleRequest(Request $request, Response $response): void
+    public static function handleRequest(Request $request, Response $response, string $routeRulesCacheFile = ''): void
     {
         if (strtoupper($request->getMethod()) === 'OPTIONS') {
             $response->withPayload(JsonResponse::withPayload(['code' => 200]));
             $response->send();
             return;
+        }
+
+        if (!empty($routeRulesCacheFile)) {
+            $request->withContextParam('routeRulesCacheFile', $routeRulesCacheFile);
         }
 
         self::checkNecessaryExceptionHandlers();
@@ -154,7 +150,7 @@ final class Boot
                 $handlers = [];
             }
         } else {
-            $cacheFile = RouteRulesBuilder::cacheFile();
+            $cacheFile = empty($routeRulesCacheFile) ? RouteRulesBuilder::cacheFile() : $routeRulesCacheFile;
 
             if ($cacheFile !== '' && is_file($cacheFile)) {
                 try {

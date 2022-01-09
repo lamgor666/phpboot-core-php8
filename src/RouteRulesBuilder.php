@@ -21,6 +21,7 @@ use phpboot\annotation\UploadedFile;
 use phpboot\annotation\Validate;
 use phpboot\common\constant\RandomStringType;
 use phpboot\common\constant\ReqParamSecurityMode;
+use phpboot\common\util\ArrayUtils;
 use phpboot\common\util\FileUtils;
 use phpboot\common\util\JsonUtils;
 use phpboot\common\util\ReflectUtils;
@@ -58,23 +59,42 @@ final class RouteRulesBuilder {
         return is_string($fpath) ? $fpath : '';
     }
 
-    public static function buildRouteRules(string $baseDir, array $modules, bool $force = false): void
+    public static function buildRouteRules(
+        string $baseDir = '',
+        array $modules = [],
+        string $cacheFile = '',
+        bool $force = false
+    ): void
     {
-        $baseDir = str_replace("\\", '/', $baseDir);
-        $baseDir = rtrim($baseDir, '/');
+        if (empty($baseDir)) {
+            $baseDir = FileUtils::getRealpath('classpath:app/controller');
+        }
 
-        if ($baseDir === '' || !is_dir($baseDir)) {
+        if (empty($baseDir)) {
             return;
         }
 
-        $cacheFile = self::cacheFile();
+        $baseDir = str_replace("\\", '/', $baseDir);
+        $baseDir = rtrim($baseDir, '/');
 
-        if ($cacheFile === '') {
+        if (empty($baseDir) || !is_dir($baseDir)) {
+            return;
+        }
+
+        if (empty($cacheFile)) {
+            $cacheFile = self::cacheFile();
+        }
+
+        if (empty($cacheFile)) {
             return;
         }
 
         if (is_file($cacheFile) && !$force) {
             return;
+        }
+
+        if (!ArrayUtils::isStringArray($modules)) {
+            $modules = ['common', 'admin', 'wxapp', 'test'];
         }
 
         $lines = [];
