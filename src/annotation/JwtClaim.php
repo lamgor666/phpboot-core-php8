@@ -5,7 +5,7 @@ namespace phpboot\annotation;
 use Attribute;
 use phpboot\common\Cast;
 
-#[Attribute(Attribute::TARGET_METHOD)]
+#[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class JwtClaim
 {
     /**

@@ -6,7 +6,7 @@ use Attribute;
 use phpboot\common\constant\Regexp;
 use phpboot\common\util\ArrayUtils;
 
-#[Attribute(Attribute::TARGET_METHOD)]
+#[Attribute(Attribute::TARGET_METHOD | Attribute::IS_REPEATABLE)]
 final class MapBind
 {
     /**
