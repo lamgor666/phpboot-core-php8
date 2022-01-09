@@ -3,6 +3,7 @@
 namespace phpboot;
 
 use Closure;
+use phpboot\common\constant\ReqParamSecurityMode;
 use phpboot\common\swoole\Swoole;
 use phpboot\common\util\ArrayUtils;
 use phpboot\common\util\StringUtils;
@@ -41,22 +42,19 @@ final class Boot
         }
 
         try {
-            $cache = include($filepath);
+            $routeRules = include($filepath);
         } catch (Throwable) {
-            $cache = null;
+            $routeRules = null;
         }
 
-        if (!is_array($cache) || !is_array($cache['routeItems']) || !is_array($cache['handlers'])) {
-            return;
+        if (!is_array($routeRules)) {
+            $routeRules = [];
         }
 
-        foreach ($cache['routeItems'] as $route) {
-            self::addRoute($workerId, $route);
-        }
+        self::$map1["route_rules_worker$workerId"] = $routeRules;
 
-        foreach ($cache['handlers'] as $handlerName => $fn) {
-            self::addRequestHandler($workerId, $handlerName, $fn);
-            self::addControllerBean($workerId, $handlerName);
+        foreach ($routeRules as $rule) {
+            self::addControllerBean($workerId, $rule['handler']);
         }
     }
 
@@ -132,47 +130,37 @@ final class Boot
         $ctx->setMethod($request->getMethod());
         $routes = new RouteCollection();
         $workerId = Swoole::getWorkerId();
-        $routeItems = [];
-        $handlers = [];
+        $routeRules = [];
 
         if ($workerId >= 0) {
-            $rulesKey = "route_items_worker$workerId";
-            $routeItems = self::$map1[$rulesKey];
-
-            if (!is_array($routeItems)) {
-                $routeItems = [];
-            }
-
-            $handlersKey = "request_handlers_worker$workerId";
-            $handlers = self::$map1[$handlersKey];
-
-            if (!is_array($handlers)) {
-                $handlers = [];
-            }
+            $rulesKey = "route_rules_worker$workerId";
+            $routeRules = self::$map1[$rulesKey];
         } else {
             $cacheFile = empty($routeRulesCacheFile) ? RouteRulesBuilder::cacheFile() : $routeRulesCacheFile;
 
             if ($cacheFile !== '' && is_file($cacheFile)) {
                 try {
-                    $cache = include(RouteRulesBuilder::cacheFile());
+                    $routeRules = include($cacheFile);
                 } catch (Throwable) {
-                    $cache = [];
-                }
-
-                if (is_array($cache) && is_array($cache['routeItems'])) {
-                    $routeItems = $cache['routeItems'];
-                }
-
-                if (is_array($cache) && is_array($cache['handlers'])) {
-                    $handlers = $cache['handlers'];
+                    $routeRules = [];
                 }
             }
         }
 
-        /* @var Route $route */
-        foreach ($routeItems as $route) {
-            $handlerName = $route->getOption('handlerName');
-            $routes->add($handlerName, $route);
+        if (!is_array($routeRules)) {
+            $routeRules = [];
+        }
+
+        foreach ($routeRules as $rule) {
+            $route = new Route($rule['requestMapping']);
+
+            if ($route['httpMethod'] === 'ALL') {
+                $route->setMethods(['GET', 'POST']);
+            } else {
+                $route->setMethods([$rule['httpMethod']]);
+            }
+
+            $routes->add($rule['handler'], $route);
         }
 
         $matcher = new UrlMatcher($routes, $ctx);
@@ -180,16 +168,7 @@ final class Boot
         try {
             $result = $matcher->match($request->getRequestUrl());
             $handlerFunc = $result['_route'];
-            $handler = $handlers[$handlerFunc];
-
-            if (!$handler) {
-                $response->withPayload(new RuntimeException("handler not found for request uri: {$request->getRequestUrl()}"));
-                $response->send();
-                return;
-            }
-
             $request->withContextParam('pathVariables', ArrayUtils::removeKeys($result, '_route'));
-            $handler($request, $response);
         } catch (Throwable $ex) {
             if ($ex instanceof ResourceNotFoundException) {
                 $response->withPayload(HttpError::create(404));
@@ -198,6 +177,193 @@ final class Boot
             } else {
                 $response->withPayload($ex);
             }
+
+            $response->send();
+            return;
+        }
+
+        $request->withContextParam('handlerName', $handlerFunc);
+        $matchedRule = null;
+
+        foreach ($routeRules as $rule) {
+            if ($rule['handler'] === $handlerFunc) {
+                $matchedRule = $rule;
+                break;
+            }
+        }
+
+        if (empty($matchedRule)) {
+            $response->withPayload(new RuntimeException("handler not found for request uri: {$request->getRequestUrl()}"));
+            $response->send();
+            return;
+        }
+
+        if (isset($matchedRule['rateLimitSettings']) && !empty($matchedRule['rateLimitSettings'])) {
+            $request->withContextParam('rateLimitSettings', $matchedRule['rateLimitSettings']);
+        }
+
+        if (isset($matchedRule['jwtAuthKey']) && !empty($matchedRule['jwtAuthKey'])) {
+            $request->withContextParam('jwtAuthKey', $matchedRule['jwtAuthKey']);
+        }
+
+        if (isset($matchedRule['validateRules']) && !empty($matchedRule['validateRules'])) {
+            $request->withContextParam('validateRules', $matchedRule['validateRules']);
+        }
+
+        if (isset($matchedRule['extraAnnos']) && !empty($matchedRule['extraAnnos'])) {
+            $request->withContextParam('extraAnnos', $matchedRule['extraAnnos']);
+        }
+
+        $handler = function (Request $req, Response $resp) use ($matchedRule) {
+            $middlewares = collect(Boot::getMiddlewares())
+                ->filter(fn(Middleware $mid) => $mid->getType() === Middleware::PRE_HANDLE_MIDDLEWARE)
+                ->sortBy(fn(Middleware $mid) => $mid->getOrder(), SORT_NUMERIC);
+
+            /* @var Middleware $mid */
+            foreach ($middlewares->toArray() as $mid) {
+                $mid->handle($req, $resp);
+            }
+
+            $argList = [];
+
+            foreach ($matchedRule['handlerFuncArgs'] as $i => $argInfo) {
+                if (!is_array($argInfo)) {
+                    throw new RuntimeException("fail to inject arg$i for handler: {$matchedRule['handler']}");
+                }
+
+                if ($argInfo['rawReq']) {
+                    $argList[] = $req;
+                    continue;
+                }
+
+                if ($argInfo['rawJwt']) {
+                    $argList[] = $req->getJwt();
+                    continue;
+                }
+
+                if ($argInfo['clientIp']) {
+                    $argList[] = $req->getClientIp();
+                    continue;
+                }
+
+                if (isset($argInfo['httpHeaderName'])) {
+                    $hname = str_replace('{argName}', $argInfo['name'], $argInfo['httpHeaderName']);
+                    $argList[] = $req->getHeader($hname);
+                    continue;
+                }
+
+                if ($argInfo['rawBody']) {
+                    $argList[] = $req->getRawBody();
+                    continue;
+                }
+
+                if (isset($argInfo['uploadedFileKey'])) {
+                    $argList[] = $req->getUploadedFile($argInfo['uploadedFileKey']);
+                    continue;
+                }
+
+                if (isset($argInfo['pathVariableName'])) {
+                    $pname = str_replace('{argName}', $argInfo['name'], $argInfo['pathVariableName']);
+                    $dv = $argInfo['defaultValue'];
+
+                    $argList[] = match ($argInfo['type']) {
+                        'int' => $req->pathVariableAsInt($pname, $dv),
+                        'float' => $req->pathVariableAsFloat($pname, $dv),
+                        'bool' => $req->pathVariableAsBoolean($pname, $dv),
+                        'string' => $req->pathVariableAsString($pname, $dv),
+                        default => throw new RuntimeException("unsupported type for pathVariable: $pname")
+                    };
+
+                    continue;
+                }
+
+                if (isset($argInfo['jwtClaimName'])) {
+                    $cname = str_replace('{argName}', $argInfo['name'], $argInfo['jwtClaimName']);
+                    $dv = $argInfo['defaultValue'];
+
+                    $argList[] = match ($argInfo['type']) {
+                        'int' => $req->jwtIntCliam($cname, $dv),
+                        'float' => $req->jwtFloatClaim($cname, $dv),
+                        'bool' => $req->jwtBooleanClaim($cname, $dv),
+                        'string' => $req->jwtStringClaim($cname, $dv),
+                        'array' => $req->jwtArrayClaim($cname),
+                        default => throw new RuntimeException("unsupported type for jwt claim: $cname")
+                    };
+
+                    continue;
+                }
+
+                if (isset($argInfo['reqParamName'])) {
+                    $rname = str_replace('{argName}', $argInfo['name'], $argInfo['reqParamName']);
+                    $dv = $argInfo['defaultValue'];
+
+                    switch ($argInfo['type']) {
+                        case 'int':
+                            $argList[] = $req->requestParamAsInt($rname, $dv);
+                            break;
+                        case 'float':
+                            $argList[] = $req->requestParamAsFloat($rname, $dv);
+                            break;
+                        case 'bool':
+                            $argList[] = $req->requestParamAsBoolean($rname, $dv);
+                            break;
+                        case 'string':
+                            if ($argInfo['decimal']) {
+                                $securityMode = ReqParamSecurityMode::STRIP_TAGS;
+                                $paramValue = $req->requestParamAsString($rname, $securityMode, $dv);
+                                $argList[] = bcadd($paramValue, 0, 2);
+                            } else {
+                                $securityMode = $argInfo['securityMode'];
+                                $argList[] = $req->requestParamAsString($rname, $securityMode, $dv);
+                            }
+
+                            break;
+                        case 'array':
+                            $argList[] = $req->requestParamAsArray($rname);
+                            break;
+                        default:
+                            throw new RuntimeException("unsupported type for request param: $rname");
+                    }
+
+                    continue;
+                }
+
+                if ($argInfo['mapBind']) {
+                    $argList[] = $req->getMap($argInfo['mapBindRules']);
+                    continue;
+                }
+
+                throw new RuntimeException("fail to inject arg$i [{$argInfo['name']}] for handler: {$matchedRule['handler']}");
+            }
+
+            $className = StringUtils::substringBefore($matchedRule['handler'], '@');
+            $className = StringUtils::ensureLeft($className, "\\");
+            $methodName = StringUtils::substringAfter($matchedRule['handler'], '@');
+
+            if (Swoole::inCoroutineMode(true)) {
+                $bean = Boot::getControllerBean($className);
+            } else {
+                $bean = new $className();
+            }
+
+            $payload = call_user_func_array([$bean, $methodName], $argList);
+
+            $middlewares = collect(Boot::getMiddlewares())
+                ->filter(fn(Middleware $mid) => $mid->getType() === Middleware::POST_HANDLE_MIDDLEWARE)
+                ->sortBy(fn(Middleware $mid) => $mid->getOrder(), SORT_NUMERIC);
+
+            /* @var Middleware $mid */
+            foreach ($middlewares->toArray() as $mid) {
+                $mid->handle($req, $resp);
+            }
+
+            $resp->withPayload($payload);
+        };
+
+        try {
+            $handler($request, $response);
+        } catch (Throwable $ex) {
+            $response->withPayload($ex);
         }
 
         $response->send();
