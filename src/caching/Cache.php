@@ -3,7 +3,6 @@
 namespace phpboot\caching;
 
 use phpboot\common\AppConf;
-use phpboot\common\swoole\Swoole;
 use phpboot\common\util\FileUtils;
 use phpboot\common\util\StringUtils;
 
@@ -44,7 +43,7 @@ final class Cache
         return $prefix . StringUtils::ensureLeft($cacheKey, '.');
     }
 
-    public static function withFileCache(string $cacheDir, string $storeName = 'file', ?int $workerId = null): void
+    public static function withFileCache(string $cacheDir, string $storeName = 'file'): void
     {
         $cacheDir = FileUtils::getRealpath($cacheDir);
         $cacheDir = str_replace("\\", '/', $cacheDir);
@@ -57,60 +56,25 @@ final class Cache
             return;
         }
 
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "stores_{$storeName}_worker$workerId";
-        } else {
-            $key = "stores_{$storeName}_noworker";
-        }
-
+        $key = "stores_$storeName";
         self::$map1[$key] = new FileCache($cacheDir);
     }
 
-    public static function withRedisCache(string $storeName = 'redis', ?int $workerId = null): void
+    public static function withRedisCache(string $storeName = 'redis'): void
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "stores_{$storeName}_worker$workerId";
-        } else {
-            $key = "stores_{$storeName}_noworker";
-        }
-
+        $key = "stores_$storeName";
         self::$map1[$key] = new RedisCache();
     }
 
-    public static function withSwooleCache(string $storeName = 'swoole', ?int $workerId = null): void
+    public static function withSwooleCache(string $storeName = 'swoole'): void
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "stores_{$storeName}_worker$workerId";
-        } else {
-            $key = "stores_{$storeName}_noworker";
-        }
-
+        $key = "stores_$storeName";
         self::$map1[$key] = new SwooleCache();
     }
 
-    public static function defaultStore(?string $name = null, ?int $workerId = null): CacheInterface
+    public static function defaultStore(?string $name = null): CacheInterface
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "defaultStore_worker$workerId";
-        } else {
-            $key = 'defaultStore_noworker';
-        }
+        $key = 'default_store';
 
         if (is_string($name)) {
             if ($name !== '') {
@@ -126,36 +90,18 @@ final class Cache
             return new NoopCache();
         }
 
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "stores_{$storeName}_worker$workerId";
-        } else {
-            $key = "stores_{$storeName}_noworker";
-        }
-
+        $key = "stores_$storeName";
         $cache = self::$map1[$key];
         return $cache instanceof CacheInterface ? $cache : new NoopCache();
     }
 
-    public static function store(string $name = '', ?int $workerId = null): CacheInterface
+    public static function store(string $name = ''): CacheInterface
     {
         if (empty($name)) {
             return self::defaultStore();
         }
 
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "stores_{$name}_worker$workerId";
-        } else {
-            $key = "stores_{$name}_noworker";
-        }
-
+        $key = "stores_$name";
         $cache = self::$map1[$key];
         return $cache instanceof CacheInterface ? $cache : new NoopCache();
     }

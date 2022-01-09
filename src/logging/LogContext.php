@@ -2,7 +2,6 @@
 
 namespace phpboot\logging;
 
-use phpboot\common\swoole\Swoole;
 use phpboot\common\util\ArrayUtils;
 use Psr\Log\LoggerInterface;
 
@@ -14,7 +13,7 @@ final class LogContext
     {
     }
 
-    public static function withLogger(Logger|array $arg0, ?int $workerId = null): void
+    public static function withLogger(Logger|array $arg0): void
     {
         $logger = null;
 
@@ -28,15 +27,7 @@ final class LogContext
             return;
         }
 
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "loggers_worker$workerId";
-        } else {
-            $key = 'loggers_noworker';
-        }
+        $key = 'loggers';
 
         if (!isset(self::$map1[$key])) {
             self::$map1[$key] = [];
@@ -62,17 +53,9 @@ final class LogContext
         }
     }
 
-    public static function getLogger(string $name, ?int $workerId = null): LoggerInterface
+    public static function getLogger(string $name): LoggerInterface
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "loggers_worker$workerId";
-        } else {
-            $key = 'loggers_noworker';
-        }
+        $key = 'loggers';
 
         if (!is_array(self::$map1[$key])) {
             self::$map1[$key] = [];
@@ -91,106 +74,52 @@ final class LogContext
         return Logger::create(['noop' => true]);
     }
 
-    public static function withRuntimeLogger(string $name = 'runtime', ?int $workerId = null): void
+    public static function withRuntimeLogger(string $name = 'runtime'): void
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "runtimeLogger_worker$workerId";
-        } else {
-            $key = 'runtimeLogger_noworker';
-        }
-
-        self::$map1[$key] = self::getLogger($name, $workerId);
+        $key = 'runtime_logger';
+        self::$map1[$key] = self::getLogger($name);
     }
 
-    public static function getRuntimeLogger(?int $workerId = null): LoggerInterface
+    public static function getRuntimeLogger(): LoggerInterface
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "runtimeLogger_worker$workerId";
-        } else {
-            $key = 'runtimeLogger_noworker';
-        }
-
+        $key = 'runtime_logger';
         $logger = self::$map1[$key];
         return $logger instanceof Logger ? $logger : Logger::create(['noop' => true]);
     }
 
-    public static function withRequestLogLogger(string $name = 'request', ?int $workerId = null): void
+    public static function withRequestLogLogger(string $name = 'request'): void
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "requestLogLogger_worker$workerId";
-        } else {
-            $key = 'requestLogLogger_noworker';
-        }
-
+        $key = 'request_log_logger';
         self::$map1[$key] = self::getLogger($name);
     }
 
-    public static function getRequestLogLogger(?int $workerId = null): ?LoggerInterface
+    public static function getRequestLogLogger(): ?LoggerInterface
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "requestLogLogger_worker$workerId";
-        } else {
-            $key = 'requestLogLogger_noworker';
-        }
-
+        $key = 'request_log_logger';
         $logger = self::$map1[$key];
         return $logger instanceof Logger && !$logger->isNoop() ? $logger : null;
     }
 
-    public static function requestLogEnabled(?int $workerId = null): bool
+    public static function requestLogEnabled(): bool
     {
-        return self::getRequestLogLogger($workerId) !== null;
+        return self::getRequestLogLogger() !== null;
     }
 
-    public static function withExecuteTimeLogLogger(string $name = 'request', ?int $workerId = null): void
+    public static function withExecuteTimeLogLogger(string $name = 'request'): void
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "executeTimeLogLogger_worker$workerId";
-        } else {
-            $key = 'executeTimeLogLogger_noworker';
-        }
-
+        $key = 'execute_time_log_logger';
         self::$map1[$key] = self::getLogger($name);
     }
 
-    public static function getExecuteTimeLogLogger(?int $workerId = null): ?LoggerInterface
+    public static function getExecuteTimeLogLogger(): ?LoggerInterface
     {
-        if (Swoole::inCoroutineMode(true)) {
-            if (!is_int($workerId)) {
-                $workerId = Swoole::getWorkerId();
-            }
-
-            $key = "executeTimeLogLogger_worker$workerId";
-        } else {
-            $key = 'executeTimeLogLogger_noworker';
-        }
-
+        $key = 'execute_time_log_logger';
         $logger = self::$map1[$key];
         return $logger instanceof Logger && !$logger->isNoop() ? $logger : null;
     }
 
-    public static function executeTimeLogEnabled(?int $workerId = null): bool
+    public static function executeTimeLogEnabled(): bool
     {
-        return self::getExecuteTimeLogLogger($workerId) !== null;
+        return self::getExecuteTimeLogLogger() !== null;
     }
 }
