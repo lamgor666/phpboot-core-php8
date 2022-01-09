@@ -19,7 +19,6 @@ final class Validate
     public function __construct(array|string $rules, bool $failfast = false)
     {
         $_rules = [];
-        $failfast = false;
 
         if (is_string($rules) && $rules !== '') {
             $_rules = preg_split(Regexp::COMMA_SEP, $rules);
