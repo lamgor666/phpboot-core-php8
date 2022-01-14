@@ -20,6 +20,7 @@ use phpboot\annotation\RequestMapping;
 use phpboot\annotation\RequestParam;
 use phpboot\annotation\UploadedFile;
 use phpboot\annotation\Validate;
+use phpboot\common\constant\ReqParamSecurityMode;
 use phpboot\common\util\ArrayUtils;
 use phpboot\common\util\FileUtils;
 use phpboot\common\util\JsonUtils;
@@ -215,6 +216,44 @@ final class RouteRulesBuilder {
         if (empty($rules)) {
             return;
         }
+
+        $rules = array_map(function ($rule) {
+            foreach ($rule as $key => $value) {
+                if ($key === 'handlerFuncArgs') {
+                    if (empty($value)) {
+                        unset($rule[$key]);
+                    } else {
+                        $rule[$key] = array_map(function ($map1) {
+                            foreach ($map1 as $k1 => $v1) {
+                                if ($v1 === '') {
+                                    unset($map1[$k1]);
+                                    continue;
+                                }
+
+                                if ($v1 === false) {
+                                    unset($map1[$k1]);
+                                    continue;
+                                }
+
+                                if ($k1 === 'securityMode' && $v1 === ReqParamSecurityMode::STRIP_TAGS) {
+                                    unset($map1[$k1]);
+                                }
+                            }
+
+                            return $map1;
+                        }, $value);
+                    }
+
+                    continue;
+                }
+
+                if ($value === '') {
+                    unset($rule[$key]);
+                }
+            }
+
+            return $rule;
+        }, $rules);
 
         $sb = [
             "<?php\n",

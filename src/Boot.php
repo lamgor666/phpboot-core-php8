@@ -225,8 +225,9 @@ final class Boot
             }
 
             $argList = [];
+            $args = empty($matchedRule['handlerFuncArgs']) ? [] : $matchedRule['handlerFuncArgs'];
 
-            foreach ($matchedRule['handlerFuncArgs'] as $i => $argInfo) {
+            foreach ($args as $i => $argInfo) {
                 if (!is_array($argInfo)) {
                     throw new RuntimeException("fail to inject arg$i for handler: {$matchedRule['handler']}");
                 }
@@ -264,7 +265,7 @@ final class Boot
 
                 if (isset($argInfo['pathVariableName'])) {
                     $pname = str_replace('{argName}', $argInfo['name'], $argInfo['pathVariableName']);
-                    $dv = $argInfo['defaultValue'];
+                    $dv = $argInfo['defaultValue'] ?? '';
 
                     $argList[] = match ($argInfo['type']) {
                         'int' => $req->pathVariableAsInt($pname, $dv),
@@ -279,7 +280,7 @@ final class Boot
 
                 if (isset($argInfo['jwtClaimName'])) {
                     $cname = str_replace('{argName}', $argInfo['name'], $argInfo['jwtClaimName']);
-                    $dv = $argInfo['defaultValue'];
+                    $dv = $argInfo['defaultValue'] ?? '';
 
                     $argList[] = match ($argInfo['type']) {
                         'int' => $req->jwtIntCliam($cname, $dv),
@@ -295,7 +296,7 @@ final class Boot
 
                 if (isset($argInfo['reqParamName'])) {
                     $rname = str_replace('{argName}', $argInfo['name'], $argInfo['reqParamName']);
-                    $dv = $argInfo['defaultValue'];
+                    $dv = $argInfo['defaultValue'] ?? '';
 
                     switch ($argInfo['type']) {
                         case 'int':
@@ -313,7 +314,7 @@ final class Boot
                                 $paramValue = $req->requestParamAsString($rname, $securityMode, $dv);
                                 $argList[] = bcadd($paramValue, 0, 2);
                             } else {
-                                $securityMode = $argInfo['securityMode'];
+                                $securityMode = $argInfo['securityMode'] ?? ReqParamSecurityMode::STRIP_TAGS;
                                 $argList[] = $req->requestParamAsString($rname, $securityMode, $dv);
                             }
 
