@@ -2,6 +2,7 @@
 
 namespace phpboot\http\middleware;
 
+use phpboot\common\util\NumberUtils;
 use phpboot\common\util\StringUtils;
 use phpboot\http\server\Request;
 use phpboot\http\server\Response;
@@ -72,6 +73,11 @@ class MidExecuteTimeLog implements Middleware
         $n1 = bcdiv($n1, 1000, 6);
         $n1 = rtrim($n1, '0');
         $n1 = rtrim($n1, '.');
+
+        if (str_contains($n1, '.')) {
+            $n1 = NumberUtils::toDecimalString($n1, 3);
+        }
+
         return "{$n1}s";
     }
 }
