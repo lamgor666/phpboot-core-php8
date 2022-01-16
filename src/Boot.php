@@ -154,7 +154,7 @@ final class Boot
         foreach ($routeRules as $rule) {
             $route = new Route($rule['requestMapping']);
 
-            if ($route['httpMethod'] === 'ALL') {
+            if ($rule['httpMethod'] === 'ALL') {
                 $route->setMethods(['GET', 'POST']);
             } else {
                 $route->setMethods([$rule['httpMethod']]);
