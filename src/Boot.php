@@ -3,9 +3,11 @@
 namespace phpboot;
 
 use Closure;
+use phpboot\common\AppConf;
 use phpboot\common\constant\ReqParamSecurityMode;
 use phpboot\common\swoole\Swoole;
 use phpboot\common\util\ArrayUtils;
+use phpboot\common\util\JsonUtils;
 use phpboot\common\util\StringUtils;
 use phpboot\exception\ExceptionHandler;
 use phpboot\exception\ExceptionHandlerImpl;
@@ -16,6 +18,7 @@ use phpboot\http\middleware\Middleware;
 use phpboot\http\server\Request;
 use phpboot\http\server\Response;
 use phpboot\http\server\response\JsonResponse;
+use phpboot\logging\LogContext;
 use RuntimeException;
 use Symfony\Component\Routing\Exception\MethodNotAllowedException;
 use Symfony\Component\Routing\Exception\ResourceNotFoundException;
@@ -171,6 +174,29 @@ final class Boot
             $request->withContextParam('pathVariables', ArrayUtils::removeKeys($result, '_route'));
         } catch (Throwable $ex) {
             if ($ex instanceof ResourceNotFoundException) {
+                if (AppConf::getBoolean('logging.logNotFound')) {
+                    $logger = LogContext::getRuntimeLogger();
+
+                    $map1 = [
+                        'baseUrl' => $ctx->getBaseUrl(),
+                        'pathInfo' => $ctx->getPathInfo(),
+                        'method' => $ctx->getMethod(),
+                        'host' => $ctx->getHost(),
+                        'scheme' => $ctx->getScheme(),
+                        'httpPort' => $ctx->getHttpPort(),
+                        'httpsPort' => $ctx->getHttpsPort(),
+                        'queryString' => $ctx->getQueryString()
+                    ];
+
+                    $msg = sprintf(
+                        'http 404 not found, request url: %s, ctx: %s',
+                        $request->getRequestUrl(),
+                        JsonUtils::toJson($map1)
+                    );
+
+                    $logger->info($msg);
+                }
+
                 $response->withPayload(HttpError::create(404));
             } else if ($ex instanceof MethodNotAllowedException) {
                 $response->withPayload(HttpError::create(405));
