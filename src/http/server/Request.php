@@ -223,6 +223,10 @@ final class Request
         $requestUri = trim($requestUri, '/');
         $requestUri = StringUtils::ensureLeft($requestUri, '/');
 
+        if (str_contains($requestUri, '?')) {
+            $requestUri = StringUtils::substringBefore($requestUri, '?');
+        }
+
         if (!$withQueryString) {
             return $requestUri;
         }
